@@ -1,8 +1,8 @@
 use macroquad::prelude::*;
 use num_complex::Complex;
 
-const TWOPI:f32 = 6.2831853072;
-const ARRX:usize = 1000;
+
+const ARRX:usize = 100;
 const ARRY:usize = 100;
 const WORLD_SIZE:f32 = 100.0;
 
@@ -14,13 +14,15 @@ async fn main() {
     let mut array:[[Vec2;ARRY];ARRX] = [[Vec2{x:0.0,y: 0.0};ARRY];ARRX];
 
     for x in 0..ARRX{
-    	for y in 0..ARRY{ //no idea why 2PI is in X, but it just works 
+    	for y in 0..ARRY{
     		array[x][y] = Vec2{
-				x:(x as f32/ARRX as f32) * TWOPI,
-				y: y as f32/ ARRY as f32};
+				x:(x as f32 *2.0 /ARRX as f32 -1.0) * std::f32::consts::PI,
+				y: y as f32 *2.0 /ARRY as f32 -1.0
+			};
     	}
     }
 
+	println!("{}", array[0][0]);
 
 	let stone = Texture2D::from_file_with_format(
 	    include_bytes!("../textures/stone.png"),
@@ -48,7 +50,7 @@ async fn main() {
     			complex = Complex::exp(complex);
 				let node_x = complex.re * WORLD_SIZE;
 				let node_y = complex.im * WORLD_SIZE;
-				let size = 1.0;//f32::sqrt(f32::powf(node_x,2.)+f32::powf(node_y,2.));
+				let size = 8.0;//f32::sqrt(f32::powf(node_x,2.)+f32::powf(node_y,2.));
 
 
 				
