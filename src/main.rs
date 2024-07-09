@@ -1,20 +1,23 @@
 use macroquad::prelude::*;
 use num_complex::Complex;
 
+const TWOPI:f32 = 6.2831853072;
+const ARRX:usize = 1000;
+const ARRY:usize = 100;
+const WORLD_SIZE:f32 = 100.0;
 
-const ARRX:usize = 13;
-const ARRY:usize = 10;
 
 #[macroquad::main("Torus")]
 async fn main() {
     println!("Hello, world!");
 
     let mut array:[[Vec2;ARRY];ARRX] = [[Vec2{x:0.0,y: 0.0};ARRY];ARRX];
-    let r_p = 0.1585 * array.len() as f32;
-    
+
     for x in 0..ARRX{
-    	for y in 0..ARRY{
-    		array[x][y] = Vec2{x:x as f32 * 1.,y: y as f32 * 1.};
+    	for y in 0..ARRY{ //no idea why 2PI is in X, but it just works 
+    		array[x][y] = Vec2{
+				x:(x as f32/ARRX as f32) * TWOPI,
+				y: y as f32/ ARRY as f32};
     	}
     }
 
@@ -42,14 +45,16 @@ async fn main() {
     	for x in 0..ARRX{
     		for y in 0..ARRY{
     			let mut complex = Complex{re:array[x][y].y, im:array[x][y].x};
-    			complex = r_p * Complex::exp(complex/r_p);
-				let node_x = complex.re;
-				let node_y = complex.im;
-				let size = f32::sqrt(f32::powf(node_x,2.)+f32::powf(node_y,2.))/1.65;
+    			complex = Complex::exp(complex);
+				let node_x = complex.re * WORLD_SIZE;
+				let node_y = complex.im * WORLD_SIZE;
+				let size = 1.0;//f32::sqrt(f32::powf(node_x,2.)+f32::powf(node_y,2.));
 
 
 				
+				//not needed but here as why not in case 
 				//draw_circle( node_x/50. + 500.0,  node_y/50. + 500.0, size, Color{r:0.1 * x as f32, g:0.1* y as f32, b:1.0, a:1.0});
+
 				if y <= ARRY - 3{
 					draw_texture_ex(
 						&stone,
