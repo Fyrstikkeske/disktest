@@ -2,8 +2,8 @@ use macroquad::prelude::*;
 use num_complex::Complex;
 
 
-const ARRX:usize = 70;
-const ARRY:usize = 100;
+const ARRX:usize = 3;
+const ARRY:usize = 10000;
 //const WORLD_SIZE:f32 = 100.0;
 
 
@@ -12,26 +12,26 @@ async fn main() {
 	let mut playerx = 0.0;
 	let mut playery = 0.;
 	let mut flydown = true;
-	let mut WORLD_SIZE:f32 = 1000.0;
+	let mut WORLD_SIZE:f32 = 1.0;
 	let mut world_offset_rotation:f32 = 0.0;
-	let mut world_offset_height:f32 = 0.0;
+	let mut world_offset_height:f32 = 8.0;
 	let mut world_offset_global_x:f32 = 960.0;
 	let mut world_offset_global_y:f32 = 540.0;
 
     println!("Hello, world!");
 
-    let mut array:[[Vec2;ARRY];ARRX] = [[Vec2{x:0.0,y: 0.0};ARRY];ARRX];
+    let mut box_world:[[Vec2;ARRY];ARRX] = [[Vec2{x:0.0,y: 0.0};ARRY];ARRX];
 
     for x in 0..ARRX{
     	for y in 0..ARRY{
-    		array[x][y] = Vec2{
+    		box_world[x][y] = Vec2{
 				x:(x as f32 *2.0 /ARRX as f32 -1.0) * std::f32::consts::PI,
 				y: (y as f32 - ARRY as f32)/12.0 //y as f32 *2.0 /ARRY as f32 -1.0
 			};
     	}
     }
 
-	println!("{}", array[0][0]);
+	println!("{}", box_world[0][0]);
 
 	let stone = Texture2D::from_file_with_format(
 	    include_bytes!("../textures/stone.png"),
@@ -61,11 +61,11 @@ async fn main() {
         }
 
 		if is_key_down(KeyCode::Down) {
-            world_offset_height += 0.01;
+            world_offset_height += 1.01;
         }
 
 		if is_key_down(KeyCode::Up) {
-            world_offset_height -= 0.01;
+            world_offset_height -= 1.01;
         }
 
 		if is_key_down(KeyCode::A) {
@@ -86,11 +86,11 @@ async fn main() {
     	
     	for x in 0..ARRX{
     		for y in 0..ARRY{
-    			let mut worlds_complex = Complex{re:array[x][y].y + world_offset_height, im:array[x][y].x + world_offset_rotation};
+    			let mut worlds_complex = Complex{re:box_world[x][y].y + world_offset_height, im:box_world[x][y].x + world_offset_rotation};
     			worlds_complex = Complex::exp(worlds_complex);
-				let node_x = worlds_complex.re * WORLD_SIZE;
-				let node_y = worlds_complex.im * WORLD_SIZE;
-				let size = f32::sqrt(f32::powf(worlds_complex.re,2.)+f32::powf(worlds_complex.im,2.))*(WORLD_SIZE*0.08);
+				let node_x = worlds_complex.re;
+				let node_y = worlds_complex.im;
+				let size = f32::sqrt(f32::powf(worlds_complex.re,2.)+f32::powf(worlds_complex.im,2.))*0.08;
 
 
 				
@@ -141,7 +141,7 @@ async fn main() {
 				
     		}
     	}
-		draw_circle(player_node_x + world_offset_global_x,  player_node_y + world_offset_global_y, player_size, Color{r:1., g:1. , b:1., a:1.0});
+		//draw_circle(player_node_x + world_offset_global_x,  player_node_y + world_offset_global_y, player_size, Color{r:1., g:1. , b:1., a:1.0});
 		//playerx +=0.1;
 		//if flydown == true {playery -=0.01;}
 		//else{playery +=0.01;}
