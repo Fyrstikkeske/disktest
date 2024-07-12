@@ -2,19 +2,19 @@ use macroquad::prelude::*;
 use num_complex::Complex;
 
 
-const ARRX:usize = 3;
-const ARRY:usize = 10000;
+const ARRX:usize = 5000;
+const ARRY:usize = 3;
 //const WORLD_SIZE:f32 = 100.0;
 
 
 #[macroquad::main("Torus")]
 async fn main() {
 	let mut playerx = 0.0;
-	let mut playery = 0.;
+	let mut playery = 0.0;
 	let mut flydown = true;
 	let mut WORLD_SIZE:f32 = 1.0;
 	let mut world_offset_rotation:f32 = 0.0;
-	let mut world_offset_height:f32 = 8.0;
+	let mut world_offset_height:f32 = 7.0;
 	let mut world_offset_global_x:f32 = 960.0;
 	let mut world_offset_global_y:f32 = 540.0;
 
@@ -26,7 +26,7 @@ async fn main() {
     	for y in 0..ARRY{
     		box_world[x][y] = Vec2{
 				x:(x as f32 *2.0 /ARRX as f32 -1.0) * std::f32::consts::PI,
-				y: (y as f32 - ARRY as f32)/12.0 //y as f32 *2.0 /ARRY as f32 -1.0
+				y: (y as f32 - ARRY as f32)  //12.0 //y as f32 *2.0 /ARRY as f32 -1.0
 			};
     	}
     }
@@ -61,11 +61,11 @@ async fn main() {
         }
 
 		if is_key_down(KeyCode::Down) {
-            world_offset_height += 1.01;
+            world_offset_height += 0.04;
         }
 
 		if is_key_down(KeyCode::Up) {
-            world_offset_height -= 1.01;
+            world_offset_height -= 0.04;
         }
 
 		if is_key_down(KeyCode::A) {
@@ -74,6 +74,14 @@ async fn main() {
 
 		if is_key_down(KeyCode::D) {
             playerx += 0.01;
+        }
+
+		if is_key_down(KeyCode::W) {
+			world_offset_global_y -= 100.;
+        }
+
+		if is_key_down(KeyCode::S) {
+			world_offset_global_y += 100.;
         }
 
 
@@ -90,7 +98,7 @@ async fn main() {
     			worlds_complex = Complex::exp(worlds_complex);
 				let node_x = worlds_complex.re;
 				let node_y = worlds_complex.im;
-				let size = f32::sqrt(f32::powf(worlds_complex.re,2.)+f32::powf(worlds_complex.im,2.))*0.08;
+				let size = f32::sqrt(f32::powf(worlds_complex.re,2.)+f32::powf(worlds_complex.im,2.))/ ((0.16 * ARRX as f32)+0.373);
 
 
 				
