@@ -2,17 +2,15 @@ use macroquad::prelude::*;
 use num_complex::Complex;
 
 
-const ARRX:usize = 20;
-const ARRY:usize = 3;
-//const WORLD_SIZE:f32 = 100.0;
+const ARRX:usize = 100;
+const ARRY:usize = 100;
+
 
 
 #[macroquad::main("Torus")]
 async fn main() {
 	let mut playerx = 0.0;
-	let mut playery = 0.0;
-	let mut flydown = true;
-	let mut WORLD_SIZE:f32 = 1.0;
+	let mut playery = 0.05;
 	let mut world_offset_rotation:f32 = 0.0;
 	let mut world_offset_height:f32 = 6.0;
 	let mut world_offset_global_x:f32 = 960.0;
@@ -26,13 +24,17 @@ async fn main() {
     	for y in 0..ARRY{
     		box_world[x][y] = Vec2{
 				x:(x as f32 *2.0 /ARRX as f32 -1.0) * std::f32::consts::PI,
-				y: ((y+1) as f32 - ARRY as f32) / 1.00 //y as f32 *2.0 /ARRY as f32 -1.0
+				y: ((y+1) as f32 - ARRY as f32) *((std::f32::consts::PI*2.)/ARRX as f32)
 			};
     	}
     }
 
 	println!("{}", box_world[0][0]);
 
+	let imposter = Texture2D::from_file_with_format(
+		include_bytes!("../textures/imposter.png"),
+		None,
+	);
 	let stone = Texture2D::from_file_with_format(
 	    include_bytes!("../textures/stone.png"),
 	    None,
@@ -69,11 +71,11 @@ async fn main() {
         }
 
 		if is_key_down(KeyCode::A) {
-            playerx -= 0.01;
+            playerx -= 0.1;
         }
 
 		if is_key_down(KeyCode::D) {
-            playerx += 0.01;
+            playerx += 0.1;
         }
 
 		if is_key_down(KeyCode::W) {
@@ -84,12 +86,20 @@ async fn main() {
 			world_offset_global_y += 100.;
         }
 
+		if is_key_down(KeyCode::K) {
+			playery -= 0.01;
+        }
+
+		if is_key_down(KeyCode::L) {
+			playery += 0.01;
+        }
+
 
 		let mut playercomplex = Complex{re:playery + world_offset_height, im:playerx + world_offset_rotation};
 		playercomplex = Complex::exp(playercomplex);
-		let player_node_x = playercomplex.re * WORLD_SIZE;
-		let player_node_y = playercomplex.im * WORLD_SIZE;
-		let player_size = 50.;//f32::sqrt(f32::powf(playercomplex.re,2.)+f32::powf(playercomplex.im,2.))*(100.0*0.05);
+		let player_node_x = playercomplex.re;
+		let player_node_y = playercomplex.im;
+		let player_size = f32::sqrt(f32::powf(playercomplex.re,2.)+f32::powf(playercomplex.im,2.)) *((std::f32::consts::PI*2.)/ARRX as f32);
 
     	
     	for x in 0..ARRX{
@@ -149,7 +159,17 @@ async fn main() {
 				
     		}
     	}
-		//draw_circle(player_node_x + world_offset_global_x,  player_node_y + world_offset_global_y, player_size, Color{r:1., g:1. , b:1., a:1.0});
+		draw_texture_ex(
+				&imposter,
+				player_node_x - player_size/2. + world_offset_global_x,
+				player_node_y - player_size/2. + world_offset_global_y,
+				WHITE,
+				DrawTextureParams {
+					dest_size: Some(vec2(player_size,player_size)),
+					rotation: player_node_y.atan2(player_node_x)+std::f32::consts::PI/2.,
+					..Default::default()
+				}
+			);
 		//playerx +=0.1;
 		//if flydown == true {playery -=0.01;}
 		//else{playery +=0.01;}
