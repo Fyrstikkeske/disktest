@@ -2,9 +2,30 @@ use macroquad::prelude::*;
 use num_complex::Complex;
 
 
-const ARRX:usize = 100;
-const ARRY:usize = 100;
+#[derive(Clone, Copy, PartialEq)]
+enum BlockType {
+	Air,
+	Stone,
+	Dirt,
+	Grass,
+	Marvin,
+}
 
+struct World<'a>{
+	x_size: usize,
+	y_size: usize,
+	blocks: &'a mut [BlockType],
+}
+
+struct Texturemanager{
+	dirt: Texture2D,
+	imposter: Texture2D,
+	stone: Texture2D,
+	grass: Texture2D,
+}
+
+const ARRX:usize = 50;
+const ARRY:usize = 50;
 
 
 #[macroquad::main("Torus")]
@@ -18,48 +39,35 @@ async fn main() {
 
     println!("Hello, world!");
 
-    let mut box_world:[[Vec2;ARRY];ARRX] = [[Vec2{x:0.0,y: 0.0};ARRY];ARRX];
+    let hyperboria:World = World{x_size: ARRX, y_size: ARRY, blocks: &mut [BlockType::Air; ARRX*ARRY]};
 
-    for x in 0..ARRX{
-    	for y in 0..ARRY{
-    		box_world[x][y] = Vec2{
-				x:(x as f32 *2.0 /ARRX as f32 -1.0) * std::f32::consts::PI,
-				y: ((y+1) as f32 - ARRY as f32) *((std::f32::consts::PI*2.)/ARRX as f32)
-			};
-    	}
-    }
+	let moon:World = World{x_size: 25, y_size: 25, blocks: &mut [BlockType::Stone; 25*25]};
 
-	println!("{}", box_world[0][0]);
+	for i in 0..hyperboria.x_size{
+		hyperboria.blocks[(hyperboria.x_size * hyperboria.y_size)-(i+1)] = BlockType::Grass;
+	}
+	
+	let texturemanager = Texturemanager{
+		dirt: load_texture("textures/dirt.png").await.unwrap(),
+		imposter: load_texture("textures/imposter.png").await.unwrap(),
+		stone: load_texture("textures/stone.png").await.unwrap(),
+		grass: load_texture("textures/grass.png").await.unwrap(),
+	};
 
-	let imposter = Texture2D::from_file_with_format(
-		include_bytes!("../textures/imposter.png"),
-		None,
-	);
-	let stone = Texture2D::from_file_with_format(
-	    include_bytes!("../textures/stone.png"),
-	    None,
-	);
-	let dirt = Texture2D::from_file_with_format(
-	    include_bytes!("../textures/dirt.png"),
-	    None,
-	);
-	let grass = Texture2D::from_file_with_format(
-	    include_bytes!("../textures/grass.png"),
-	    None,
-	);
-	stone.set_filter(FilterMode::Nearest);
-	dirt.set_filter(FilterMode::Nearest);
-	grass.set_filter(FilterMode::Nearest);
+	texturemanager.stone.set_filter(FilterMode::Nearest);
+	texturemanager.dirt.set_filter(FilterMode::Nearest);
+	texturemanager.grass.set_filter(FilterMode::Nearest);
+
 
     loop{
     	clear_background(BLACK);
 
 		if is_key_down(KeyCode::Right) {
-            world_offset_rotation -= 0.05;
+            world_offset_rotation -= 0.01;
         }
 
 		if is_key_down(KeyCode::Left) {
-            world_offset_rotation += 0.05;
+            world_offset_rotation += 0.01;
         }
 
 		if is_key_down(KeyCode::Down) {
@@ -101,66 +109,14 @@ async fn main() {
 		let player_node_y = playercomplex.im;
 		let player_size = f32::sqrt(f32::powf(playercomplex.re,2.)+f32::powf(playercomplex.im,2.)) *((std::f32::consts::PI*2.)/ARRX as f32);
 
+
+		render_world(&hyperboria, &texturemanager, world_offset_height, world_offset_rotation, world_offset_global_x, world_offset_global_y);
+
+		render_world(&moon, &texturemanager, 4.0, 0.0, 100.0, 200.0);
+
     	
-    	for x in 0..ARRX{
-    		for y in 0..ARRY{
-    			let mut worlds_complex = Complex{re:box_world[x][y].y + world_offset_height, im:box_world[x][y].x + world_offset_rotation};
-    			worlds_complex = Complex::exp(worlds_complex);
-				let node_x = worlds_complex.re;
-				let node_y = worlds_complex.im;
-				let size = f32::sqrt(f32::powf(worlds_complex.re,2.)+f32::powf(worlds_complex.im,2.)) *((std::f32::consts::PI*2.)/ARRX as f32);
-
-				
-				
-				//not needed but here as why not in case 
-				//draw_circle( node_x/50. + 500.0,  node_y/50. + 500.0, size, Color{r:0.1 * x as f32, g:0.1* y as f32, b:1.0, a:1.0});
-
-				if y <= ARRY - 3{
-					draw_texture_ex(
-						&stone,
-						node_x - size/2. + world_offset_global_x,
-						node_y - size/2. + world_offset_global_y,
-						WHITE,
-						DrawTextureParams {
-							dest_size: Some(vec2(size,size)),
-							rotation: node_y.atan2(node_x),
-							..Default::default()
-						},
-					);	
-				}
-
-				if y == ARRY - 2{
-					draw_texture_ex(
-						&dirt,
-						node_x - size/2. + world_offset_global_x,
-						node_y - size/2. + world_offset_global_y,
-						WHITE,
-						DrawTextureParams {
-							dest_size: Some(vec2(size,size)),
-							rotation: node_y.atan2(node_x),
-							..Default::default()
-						},
-					);	
-				}
-				
-				if y == ARRY - 1{
-					draw_texture_ex(
-						&grass,
-						node_x - size/2. + world_offset_global_x,
-						node_y - size/2. + world_offset_global_y,
-						WHITE,
-						DrawTextureParams {
-							dest_size: Some(vec2(size,size)),
-							rotation: node_y.atan2(node_x)+std::f32::consts::PI/2.,
-							..Default::default()
-						},
-					);	
-				}
-				
-    		}
-    	}
 		draw_texture_ex(
-				&imposter,
+				&texturemanager.imposter,
 				player_node_x - player_size/2. + world_offset_global_x,
 				player_node_y - player_size/2. + world_offset_global_y,
 				WHITE,
@@ -170,15 +126,75 @@ async fn main() {
 					..Default::default()
 				}
 			);
-		//playerx +=0.1;
-		//if flydown == true {playery -=0.01;}
-		//else{playery +=0.01;}
-
-		//if playery < -1.0 {flydown = false}
-		//if playery > 1.0 {flydown = true}
-		
     	next_frame().await
     }
 }
 
+
+fn render_world
+(
+	world : &World, 
+	texturemanager: &Texturemanager,
+	world_offset_height: f32, 
+	world_offset_rotation: f32,
+	world_offset_global_x: f32,
+	world_offset_global_y: f32,
+){	
+
+	for x in 0..world.x_size{
+		for y in 0..world.y_size{
+			
+
+			//should be obvius
+			match world.blocks[(y*world.y_size)+x] {
+				BlockType::Air => {continue}
+				BlockType::Marvin => {continue}
+				_ => {}
+			}
+
+			if world.blocks[(y*world.y_size)+x] == BlockType::Air{
+				continue;
+			}
+
+			let normalised_block_position = Vec2{
+				x:(x as f32 *2.0 /world.x_size as f32 -1.0) * std::f32::consts::PI,
+				y: ((y+1) as f32 - world.y_size as f32) *((std::f32::consts::PI*2.)/world.x_size as f32)
+			};
+
+
+
+			let pre_complex_block_position = Complex{re:normalised_block_position.y + world_offset_height, im:normalised_block_position.x + world_offset_rotation};
+
+
+			let complex_block_position = Complex::exp(pre_complex_block_position);
+			let block_x = complex_block_position.re;
+			let block_y = complex_block_position.im;
+			let size = f32::sqrt(f32::powf(block_x,2.)+f32::powf(block_y,2.)) *((std::f32::consts::PI*2.)/world.x_size as f32);
+
+			let texture_to_use:&Texture2D;
+			let rotation = block_y.atan2(block_x) +std::f32::consts::PI/2.;
+
+
+			match world.blocks[(y*world.y_size)+x] {
+				BlockType::Dirt => {texture_to_use = &texturemanager.dirt}
+				BlockType::Grass => {texture_to_use = &texturemanager.grass}
+				BlockType::Stone => {texture_to_use = &texturemanager.stone}
+				_ => {continue;}
+			}
+
+			draw_texture_ex(
+				texture_to_use,
+				block_x - size/2. + world_offset_global_x,
+				block_y - size/2. + world_offset_global_y,
+				WHITE,
+				DrawTextureParams {
+					dest_size: Some(vec2(size,size)),
+					rotation: rotation,
+					..Default::default()
+				},
+			);	
+
+		}
+	}
+}
 
