@@ -1,5 +1,5 @@
 use macroquad::prelude::*;
-use num_complex::{Complex, ComplexFloat};
+use num_complex::Complex;
 
 
 #[derive(Clone, Copy, PartialEq)]
@@ -41,17 +41,17 @@ struct Texturemanager{
 	grass: Texture2D,
 }
 
-const ARRX:usize = 30;
-const ARRY:usize = 30;
+const ARRX:usize = 100;
+const ARRY:usize = 100;
 
 
 #[macroquad::main("Torus")]
 async fn main() {
-	let mut player = DynRect{rect:Rect{x:1.0, y: 30.0, w: 1.0, h:1.0}, velocity: Vec2::ZERO};
+	let mut player = DynRect{rect:Rect{x:1.0, y: 100.0, w: 1.0, h:1.0}, velocity: Vec2::ZERO};
 
 	let mut world_offset_rotation:f32 = 0.0;
 	let mut world_offset_height:f32 = 6.0;
-	let mut world_offset_global_x:f32 = 960.0;
+	let world_offset_global_x:f32 = 960.0;
 	let mut world_offset_global_y:f32 = 540.0;
 
     println!("Hello, universe!");
@@ -63,8 +63,9 @@ async fn main() {
 	for i in 0..hyperboria.x_size{
 		hyperboria.blocks[(hyperboria.x_size * hyperboria.y_size)-(i+1)] = BlockType::Grass;
 	}
+	//hyperboria.blocks[9900] = BlockType::Air;
+	hyperboria.blocks[9999] = BlockType::Air;
 
-	
 	let texturemanager = Texturemanager{
 		dirt: load_texture("textures/dirt.png").await.unwrap(),
 		imposter: load_texture("textures/imposter.png").await.unwrap(),
@@ -83,11 +84,11 @@ async fn main() {
 
 
 		if is_key_down(KeyCode::Right) {
-            world_offset_rotation -= std::f32::consts::TAU/hyperboria.y_size as f32;
+            world_offset_rotation -= std::f32::consts::TAU/hyperboria.x_size as f32;
         }
 
 		if is_key_down(KeyCode::Left) {
-            world_offset_rotation += std::f32::consts::TAU/hyperboria.y_size as f32;
+            world_offset_rotation += std::f32::consts::TAU/hyperboria.x_size as f32;
         }
 
 		if is_key_down(KeyCode::Down) {
@@ -175,16 +176,17 @@ fn dynamic_rectangle_vs_world(delta:&f32,dynrect:&mut DynRect, world:&mut World)
 
 	
 
-	let mut search_rectangle = Rect{
+	let search_rectangle = Rect{
 		x: combined_block.x.floor(),
 		y: combined_block.y.floor(),
 		w: combined_block.right().ceil() - combined_block.x.floor(),
 		h: combined_block.bottom().ceil() - combined_block.y.floor(),
 	};
 
+
 	let area:usize =(search_rectangle.w * search_rectangle.h) as usize; 
 
-	let mut collisions_with:Vec<(usize,f32)> = vec![];
+	let mut collisions_with:Vec<(usize,f32, Rect)> = vec![];
 
 	for i in 0..area{
 		let x = (i%search_rectangle.w as usize) + search_rectangle.x.rem_euclid(world.x_size as f32) as usize;
@@ -202,34 +204,34 @@ fn dynamic_rectangle_vs_world(delta:&f32,dynrect:&mut DynRect, world:&mut World)
 			BlockType::Stone =>{}
 			_ =>{continue;}
 		}
-	
-
-		let block = Rect{x: (x%world.x_size) as f32, y: y as f32, w: 1.0, h: 1.0};
-        let rayrectinfo = dynamic_rect_vs_rect(&block, dynrect, delta);
 		
-        if rayrectinfo.hit{
-            collisions_with.push((blockindex,rayrectinfo.t_hit_near));
-        }
-        
+		for index in 0..2{
+			let block = Rect{x: x as f32 * index as f32, y: y as f32, w: 1.0, h: 1.0};
+        	let ray_rect_info = dynamic_rect_vs_rect(&block, dynrect, delta);
 		
-		
-		//world.blocks[blockindex] = BlockType::Dirt;
+        	if ray_rect_info.hit{
+        	    collisions_with.push((blockindex, ray_rect_info.t_hit_near, block));
+        	}
+		}
 	}
 
 	collisions_with.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
 	for round in collisions_with{
-		let x = round.0%world.x_size;
-		let y = round.0/world.x_size;
-		if y >= world.y_size{
+		
+		
+		
+		let x = round.2.x;
+		let y = round.2.y;
+		if y >= world.y_size as f32{
 			continue;
 		}
 		
 
 		let element = Rect{x: x as f32, y: y as f32, w: 1.0, h: 1.0};
-		let rayrectinfo = dynamic_rect_vs_rect(&element, dynrect, &delta);
-		if rayrectinfo.hit{
-			dynrect.velocity += rayrectinfo.contact_normal * dynrect.velocity.abs() * (1.0-rayrectinfo.t_hit_near);
+		let ray_rect_info = dynamic_rect_vs_rect(&element, dynrect, &delta);
+		if ray_rect_info.hit{
+			dynrect.velocity += ray_rect_info.contact_normal * dynrect.velocity.abs() * (1.0-ray_rect_info.t_hit_near);
 		}
 	}
 
@@ -311,10 +313,10 @@ fn dynamic_rect_vs_rect(
     delta: &f32,
         ) -> RayRectInfo
 {
-    let mut RayRectInfo = RayRectInfo{hit: false, contact_point: Vec2{x:0.0,y: 0.0}, contact_normal: Vec2{x:0.0,y: 0.0}, t_hit_near: 0.0};
+    let mut ray_rect_info = RayRectInfo{hit: false, contact_point: Vec2{x:0.0,y: 0.0}, contact_normal: Vec2{x:0.0,y: 0.0}, t_hit_near: 0.0};
 
     if dynrect.velocity.x == 0.0 && dynrect.velocity.y == 0.0{
-        return RayRectInfo;
+        return ray_rect_info;
     }
 
     
@@ -322,26 +324,26 @@ fn dynamic_rect_vs_rect(
     let exp_rect_size = rect.size() + dynrect.rect.size();
     let expanded_target:Rect = Rect { x: exp_rect_pos.x, y: exp_rect_pos.y, w: exp_rect_size.x, h: exp_rect_size.y };
 
-    RayRectInfo = ray_vs_rect(
+    ray_rect_info = ray_vs_rect(
         &Ray{ origin: dynrect.rect.point() + dynrect.rect.size()/2.0, direction: dynrect.velocity * *delta},
         &expanded_target
     );
 
-    if RayRectInfo.hit{
-        if RayRectInfo.t_hit_near <= 1.0 && RayRectInfo.t_hit_near >= 0.0{ 
-            RayRectInfo.hit = true;
-            return RayRectInfo;
+    if ray_rect_info.hit{
+        if ray_rect_info.t_hit_near <= 1.0 && ray_rect_info.t_hit_near >= 0.0{ 
+            ray_rect_info.hit = true;
+            return ray_rect_info;
     }}
 
-    RayRectInfo.hit = false;
-    RayRectInfo
+    ray_rect_info.hit = false;
+    ray_rect_info
 }
 
 fn ray_vs_rect(
     ray:&Ray,
     rect: &Rect,
         ) -> RayRectInfo{
-    let mut RayRectInfo = RayRectInfo{
+    let mut ray_rect_info = RayRectInfo{
         hit: false,
         contact_point: Vec2{x:0.0,y: 0.0}, 
         contact_normal: Vec2{x:0.0,y: 0.0}, 
@@ -353,31 +355,31 @@ fn ray_vs_rect(
     if t_near.x > t_far.x { std::mem::swap( &mut t_near.x, &mut t_far.x)};
     if t_near.y > t_far.y { std::mem::swap( &mut t_near.y, &mut t_far.y)};
     
-    if t_far.y.is_nan() || t_far.x.is_nan() {return RayRectInfo};
-    if t_near.y.is_nan() || t_near.x.is_nan() {return RayRectInfo};
+    if t_far.y.is_nan() || t_far.x.is_nan() {return ray_rect_info};
+    if t_near.y.is_nan() || t_near.x.is_nan() {return ray_rect_info};
 
-    if t_near.x > t_far.y || t_near.y > t_far.x {return RayRectInfo};
+    if t_near.x > t_far.y || t_near.y > t_far.x {return ray_rect_info};
 
-    RayRectInfo.t_hit_near = f32::max(t_near.x, t_near.y);
+    ray_rect_info.t_hit_near = f32::max(t_near.x, t_near.y);
     let t_hit_far = f32::min(t_far.x, t_far.y);
 
-    if t_hit_far <0.0 {return RayRectInfo};
+    if t_hit_far <0.0 {return ray_rect_info};
 
-    RayRectInfo.contact_point = ray.origin + RayRectInfo.t_hit_near * ray.direction;
+    ray_rect_info.contact_point = ray.origin + ray_rect_info.t_hit_near * ray.direction;
 
     if t_near.x > t_near.y{
         if ray.direction.x < 0.0{
-            RayRectInfo.contact_normal = Vec2 {x: 1.0,y: 0.0}
+            ray_rect_info.contact_normal = Vec2 {x: 1.0,y: 0.0}
         }else{
-            RayRectInfo.contact_normal = Vec2 {x: -1.0,y: 0.0}
+            ray_rect_info.contact_normal = Vec2 {x: -1.0,y: 0.0}
         }
     }else if t_near.x < t_near.y {
         if ray.direction.y < 0.0{
-            RayRectInfo.contact_normal = Vec2 {x: 0.0,y: 1.0}
+            ray_rect_info.contact_normal = Vec2 {x: 0.0,y: 1.0}
         }else{
-            RayRectInfo.contact_normal = Vec2 {x: 0.0,y: -1.0}
+            ray_rect_info.contact_normal = Vec2 {x: 0.0,y: -1.0}
         }
     }
-    RayRectInfo.hit = true;
-    RayRectInfo
+    ray_rect_info.hit = true;
+    ray_rect_info
 }
