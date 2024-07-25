@@ -1,6 +1,13 @@
 use macroquad::math::{Rect, Vec2};
 
-use crate::chunk::BlockType;
+use crate::chunk::{BlockType, Planet};
+
+pub struct MovableEntity<'a>{
+    pub dynrect: DynRect,
+    pub planet: Option<&'a Planet<'a>>
+}
+
+
 
 
 struct Ray{

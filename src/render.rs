@@ -57,11 +57,11 @@ pub fn render_world
 
 
 			let pre_complex_block_position = Complex{re:normalised_block_position.y + world_offset_height, im:normalised_block_position.x + world_offset_rotation};
-
-
 			let complex_block_position = Complex::exp(pre_complex_block_position);
 			let block_x = complex_block_position.re;
 			let block_y = complex_block_position.im;
+
+
 			let size = f32::sqrt(f32::powf(block_x,2.)+f32::powf(block_y,2.)) *((std::f32::consts::PI*2.)/world.x_size as f32);
 
 			let texture_to_use:&Texture2D;
