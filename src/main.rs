@@ -20,7 +20,7 @@ async fn main() {
 		name: "Terra",
 		space_position: &mut{Vec2{x: 0.0, y: 0.0}},
 		size: IVec2 { x: 100, y: 50 },
-		rotation: &mut 0.0,
+		rotation: &mut 3.4,
 	};
 
 	let mut player:collision::MovableEntity = collision::MovableEntity{
@@ -79,7 +79,7 @@ async fn main() {
 		//something like this render_world(player.planet), shit also need to add a point in which to see
 		render::render_planet_chunks(player.planet.unwrap(), &player.dynrect.rect.center(),&chunks_in_view, &texturemanager);
 
-
+		render_entity(&terra, &player, &texturemanager);
 
 
 		set_default_camera();
@@ -114,14 +114,14 @@ fn render_entity(
 	//this will be maybe a little more difficoult.
 	//world_offset_height must equal a value that makes the entity be in the right y value
 
-	let mut playercomplex = Complex{re:normalisedplayery, im:normalisedplayerx};
+	let mut playercomplex = Complex{re:normalisedplayery, im:normalisedplayerx + *planet.rotation};
 	
 
 	playercomplex = Complex::exp(playercomplex);
 	let player_node_x = playercomplex.re;
 	let player_node_y = playercomplex.im;
-	let player_size = f32::sqrt(f32::powf(playercomplex.re,2.)+f32::powf(playercomplex.im,2.)) *(std::f32::consts::TAU/planet.size.x as f32);
-
+	//let player_size = f32::sqrt(f32::powf(playercomplex.re,2.)+f32::powf(playercomplex.im,2.)) *(std::f32::consts::TAU/planet.size.x as f32);
+	let player_size = 10.0;
 	
 	draw_texture_ex(
 		&texturemanager.imposter,
@@ -130,7 +130,7 @@ fn render_entity(
 		WHITE,
 		DrawTextureParams {
 			dest_size: Some(vec2(player_size,player_size)),
-			rotation: player_node_y.atan2(player_node_x)+std::f32::consts::PI/2.,
+			rotation: player_node_y.atan2(player_node_x)+std::f32::consts::TAU,
 			..Default::default()
 	}
 );

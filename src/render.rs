@@ -32,9 +32,10 @@ pub fn render_planet_chunks(
 ){	
 
 	for chunkinfo in chunks_in_view{
+		
         for index in 0..1024{
             let blockcolor:Color = match chunkinfo.1[index] {
-                BlockType::Air => Color { r: 1.0, g: 1.0, b: 1.0, a: 0.0},
+                BlockType::Air => Color { r: 1.0, g: 1.0, b: 1.0, a: 1.0},
                 BlockType::Marvin => Color { r: 0.5, g: 0.4, b: 0.0, a: 1.0},
                 BlockType::Dirt => Color { r: 0.5, g: 0.5, b: 0.1, a: 1.0},
                 BlockType::Stone => Color { r: 0.4, g: 0.4, b: 0.45, a: 1.0},
@@ -45,25 +46,26 @@ pub fn render_planet_chunks(
             let chunk_y:i32 = index as i32/32;
             
 			let x = (chunkinfo.0.x*32) as f32 + chunk_x as f32;
-			let y = (chunkinfo.0.y*32) as f32 + chunk_x as f32;
+			let y = (chunkinfo.0.y*32) as f32 + chunk_y as f32;
 
 			//now comes the funny part(turning it into a disk)
 			
 			let normalised_block_position = Vec2{
 				x: (x as f32 *2.0 /(planet.size.x as f32*32.0) -1.0) * std::f32::consts::PI,
-				y: (y as f32 - (planet.size.y as f32*32.0)) *((std::f32::consts::PI*2.)/(planet.size.x as f32*32.0) as f32)
+				y: (y as f32 - (planet.size.y as f32*32.0)) *((std::f32::consts::TAU) / (planet.size.x as f32*32.0) as f32)
 			};
 
 
 			//my brain hurts
-			let pre_complex_block_position = Complex{re:normalised_block_position.y + 3.14, im:normalised_block_position.x};
+			let pre_complex_block_position = Complex{re:normalised_block_position.y + 10.0, im:normalised_block_position.x + *planet.rotation};
 			let complex_block_position = Complex::exp(pre_complex_block_position);
 			let transformed_x = complex_block_position.re;
 			let transformed_y = complex_block_position.im;
 
-
+			//println!("{}", transformed_y);
 			
             draw_rectangle(transformed_x, transformed_y, 1.0, 1.0, blockcolor);
+			
         }
         
     }
