@@ -1,4 +1,6 @@
-use macroquad::math::{Rect, Vec2};
+use std::collections::HashMap;
+
+use macroquad::math::{IVec2, Rect, Vec2};
 
 use crate::chunk::{BlockType, Planet};
 
@@ -6,9 +8,6 @@ pub struct MovableEntity<'a>{
     pub dynrect: DynRect,
     pub planet: Option<&'a Planet<'a>>
 }
-
-
-
 
 struct Ray{
     origin:Vec2,
@@ -106,9 +105,10 @@ fn dynamic_rect_vs_rect(
     ray_rect_info
 }
 
-pub fn dynamic_rectangle_vs_world(delta:&f32,dynrect:&mut DynRect, world:&mut crate::chunk::World){
 
-	dynrect.rect.x = dynrect.rect.x.rem_euclid(world.x_size as f32);
+//fix
+pub fn dynamic_rectangle_vs_planet_chunks(delta:&f32,dynrect:&mut DynRect,chunks_in_view: &HashMap<IVec2, [BlockType; 1024]>, planet:&crate::chunk::Planet){
+
 
 	let future_dynrect_position_x:f32 = dynrect.rect.x + (dynrect.velocity.x* *delta);
 	let future_dynrect_position_y:f32 = dynrect.rect.y + (dynrect.velocity.y* *delta);
@@ -136,30 +136,43 @@ pub fn dynamic_rectangle_vs_world(delta:&f32,dynrect:&mut DynRect, world:&mut cr
 	let mut collisions_with:Vec<(usize,f32, Rect)> = vec![];
 
 	for i in 0..area{
-		let x = (i%search_rectangle.w as usize) + search_rectangle.x.rem_euclid(world.x_size as f32) as usize;
-		let y = (i/search_rectangle.w as usize) + search_rectangle.y as usize;
-		if y >= world.y_size{
+		let x = (i%search_rectangle.w as usize) as i32 + search_rectangle.x as i32;
+		let y = (i/search_rectangle.w as usize) as i32 + search_rectangle.y as i32;
+
+
+/* 		if y >= planet.size.y as usize{
 			continue;
-		}
-		
+		}*/
+		//ok so i gotta loop in here for every chunk FUCK i realised i am looping over chunk WAIT am i? NONONO this loops over possible collisionareas YEEEES BIATCH FUCK how do i index a block in chunk
 
-		let blockindex = (x%world.x_size)+y*world.x_size;
+        let chunk_x = x/32;
+        let chunk_y = y/32;
 
-		match world.blocks[blockindex] {
+        let chunktoread = chunks_in_view.get(&IVec2{x: chunk_x, y: chunk_y});
+
+        let chunktoread = match chunktoread {
+            Some(chunk) => chunk,
+            None => {eprintln!("trying to acces a chunk that doesnt exist");continue;}
+        };
+
+        
+		let blockindex:usize = x.rem_euclid(32) as usize + (y.rem_euclid(32)*32) as usize;
+
+		match chunktoread[blockindex] {
 			BlockType::Dirt =>{}
 			BlockType::Grass =>{}
 			BlockType::Stone =>{}
 			_ =>{continue;}
 		}
 		
-		for index in 0..2{
-			let block = Rect{x: x as f32 * index as f32, y: y as f32, w: 1.0, h: 1.0};
-        	let ray_rect_info = dynamic_rect_vs_rect(&block, dynrect, delta);
 		
-        	if ray_rect_info.hit{
-        	    collisions_with.push((blockindex, ray_rect_info.t_hit_near, block));
-        	}
-		}
+		let block = Rect{x: x as f32 , y: y as f32, w: 1.0, h: 1.0};
+        let ray_rect_info = dynamic_rect_vs_rect(&block, dynrect, delta);
+		
+        if ray_rect_info.hit{
+            collisions_with.push((blockindex, ray_rect_info.t_hit_near, block));
+        }
+		
 	}
 
 	collisions_with.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
@@ -170,9 +183,9 @@ pub fn dynamic_rectangle_vs_world(delta:&f32,dynrect:&mut DynRect, world:&mut cr
 		
 		let x = round.2.x;
 		let y = round.2.y;
-		if y >= world.y_size as f32{
+/* 		if y >= world.y_size as f32{
 			continue;
-		}
+		}*/
 		
 
 		let element = Rect{x: x as f32, y: y as f32, w: 1.0, h: 1.0};

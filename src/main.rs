@@ -1,6 +1,10 @@
+use std::collections::HashMap;
+
 use chunk::Planet;
+use collision::DynRect;
 use macroquad::prelude::*;
 use num_complex::Complex;
+use render::Texturemanager;
 
 mod render;
 mod collision;
@@ -16,7 +20,7 @@ async fn main() {
 		name: "Terra",
 		space_position: &mut{Vec2{x: 0.0, y: 0.0}},
 		size: IVec2 { x: 100, y: 50 },
-		rotation: 0.0,
+		rotation: &mut 0.0,
 	};
 
 	let mut player:collision::MovableEntity = collision::MovableEntity{
@@ -24,8 +28,7 @@ async fn main() {
 		planet: Some(&terra),
 	};
 
-    
-
+    let compacta_font = load_ttf_font("Assets/compacta.ttf").await.unwrap();
 	let texturemanager = render::Texturemanager{
 		dirt: load_texture("textures/dirt.png").await.unwrap(),
 		imposter: load_texture("textures/imposter.png").await.unwrap(),
@@ -39,61 +42,112 @@ async fn main() {
 	texturemanager.imposter.set_filter(FilterMode::Nearest);
 
 
+    let mut zoom:f32 = 32.0;
+    
+    let mut camera_zoom = Vec2{x:1./10.0, y:1./10.0};
+    let mut camera_target = player.dynrect.rect.center();
+
+	let mut chunks_in_view:HashMap<IVec2,[chunk::BlockType; chunk::CHUNKSIZE]> = HashMap::new();
+
     loop{
     	clear_background(BLACK);
 		let delta = get_frame_time();
 
-		//add in camera, use terraria test as base since its just that magically good
+		playermovement(&mut player.dynrect, &delta);
 
 
+		camera_zoom.y = 1./screen_height();
+    	camera_zoom.x = 1./screen_width();
+
+    	camera_zoom *= zoom;
+
+    	let camera = Camera2D {
+        	zoom: camera_zoom,
+        	target: camera_target,
+        	..Default::default()
+    	};
+	
+		chunk::chunks_in_view_manager(camera, &mut chunks_in_view, player.planet);
+		
 
 		// fix this in chunk refactor
-		collision::dynamic_rectangle_vs_world(&delta, &mut player.dynrect, &mut player.planet);
-
-
-
-		// This should be put in its own function, could alse be used as a base for render_world()
-		let normalisedplayerx = (player.rect.x *2.0 /hyperboria.x_size as f32 -1.0) * std::f32::consts::PI;
-		let normalisedplayery = (player.rect.y - hyperboria.y_size as f32) *((std::f32::consts::PI*2.)/hyperboria.x_size as f32);
-		let mut playercomplex = Complex{re:normalisedplayery + world_offset_height, im:normalisedplayerx + world_offset_rotation};
-		playercomplex = Complex::exp(playercomplex);
-		let player_node_x = playercomplex.re;
-		let player_node_y = playercomplex.im;
-		let player_size = f32::sqrt(f32::powf(playercomplex.re,2.)+f32::powf(playercomplex.im,2.)) *((std::f32::consts::PI*2.)/ARRX as f32);
+		collision::dynamic_rectangle_vs_planet_chunks(&delta, &mut player.dynrect, &chunks_in_view, player.planet.unwrap());
 
 
 
 		//make it so that i only render the world the player is on, The situation in where he can see 2 planets at the same time should never happen
-		//something like this render_world(player.planet)
-		render::render_world(&hyperboria, &texturemanager, world_offset_height, world_offset_rotation, world_offset_global_x, world_offset_global_y);
-		render::render_world(&moon, &texturemanager, 4.0, 0.0, 100.0, 200.0);
-
-		//movement should be its own function yet again.
-		player.rect.x = player.rect.x + (player.velocity.x * delta);
-    	player.rect.y = player.rect.y + (player.velocity.y * delta);
-		player.velocity.x = player.velocity.x * 0.96;
-		player.velocity.y -= 9.81* delta;
-		if player.velocity.x.abs() < 4.{player.velocity.x = player.velocity.x * 0.89;};
+		//something like this render_world(player.planet), shit also need to add a point in which to see
+		render::render_planet_chunks(player.planet.unwrap(), &player.dynrect.rect.center(),&chunks_in_view, &texturemanager);
 
 
-		//Def its own function, should be adapted for any entity
-		draw_texture_ex(
-				&texturemanager.imposter,
-				player_node_x - player_size/2. + world_offset_global_x,
-				player_node_y - player_size/2. + world_offset_global_y,
-				WHITE,
-				DrawTextureParams {
-					dest_size: Some(vec2(player_size,player_size*player.rect.h)),
-					rotation: player_node_y.atan2(player_node_x)+std::f32::consts::PI/2.,
-					..Default::default()
-				}
-			);
+
+
+		set_default_camera();
+    	draw_fps(&compacta_font);
+		
     	next_frame().await
     }
 }
 
+fn playermovement(player: &mut DynRect, delta: &f32){
+	player.rect.x = player.rect.x + (player.velocity.x * delta);
+	player.rect.y = player.rect.y + (player.velocity.y * delta);
+	player.velocity.x = player.velocity.x * 0.96;
+	player.velocity.y -= 9.81* delta;
+	if player.velocity.x.abs() < 4.{player.velocity.x = player.velocity.x * 0.89;};
+}
 
 
+
+fn render_entity(
+	planet: &Planet,
+	entity: &collision::MovableEntity,
+	texturemanager: &Texturemanager,
+){ // 99% will need to be more fixed later on
+	//Def its own function, should be adapted for any entity
+
+	// This should maybe be put in its own function, could alse be used as a base for render_world() unsure
+	let normalisedplayerx = (entity.dynrect.rect.x *2.0 /planet.size.x as f32 -1.0) * std::f32::consts::PI;
+	let normalisedplayery = (entity.dynrect.rect.y - planet.size.y as f32) *(std::f32::consts::TAU/planet.size.x as f32);
+
+
+	//this will be maybe a little more difficoult.
+	//world_offset_height must equal a value that makes the entity be in the right y value
+
+	let mut playercomplex = Complex{re:normalisedplayery, im:normalisedplayerx};
+	
+
+	playercomplex = Complex::exp(playercomplex);
+	let player_node_x = playercomplex.re;
+	let player_node_y = playercomplex.im;
+	let player_size = f32::sqrt(f32::powf(playercomplex.re,2.)+f32::powf(playercomplex.im,2.)) *(std::f32::consts::TAU/planet.size.x as f32);
+
+	
+	draw_texture_ex(
+		&texturemanager.imposter,
+		player_node_x - player_size/2.0,
+		player_node_y - player_size/2.0,
+		WHITE,
+		DrawTextureParams {
+			dest_size: Some(vec2(player_size,player_size)),
+			rotation: player_node_y.atan2(player_node_x)+std::f32::consts::PI/2.,
+			..Default::default()
+	}
+);
+}
+
+fn draw_fps(compacta_font:&Font){
+    draw_text_ex(
+        format!("{}", get_fps()).as_str(),
+        20.0,
+        30.0,
+        TextParams {
+            font_size: 30,
+            font: Some(compacta_font),
+            ..Default::default()}
+        );
+
+}
 
 
 
