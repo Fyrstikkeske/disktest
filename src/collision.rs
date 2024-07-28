@@ -1,6 +1,6 @@
 use std::collections::HashMap;
 
-use macroquad::math::{IVec2, Rect, Vec2};
+use macroquad::math::{UVec2, Rect, Vec2};
 
 use crate::chunk::{BlockType, Planet};
 
@@ -107,8 +107,9 @@ fn dynamic_rect_vs_rect(
 
 
 //fix
-pub fn dynamic_rectangle_vs_planet_chunks(delta:&f32,dynrect:&mut DynRect,chunks_in_view: &HashMap<IVec2, [BlockType; 1024]>, planet:&crate::chunk::Planet){
+pub fn dynamic_rectangle_vs_planet_chunks(delta:&f32,dynrect:&mut DynRect,chunks_in_view: &HashMap<UVec2, [BlockType; 1024]>, planet:&crate::chunk::Planet){
 
+    println!("collisions");
 
 	let future_dynrect_position_x:f32 = dynrect.rect.x + (dynrect.velocity.x* *delta);
 	let future_dynrect_position_y:f32 = dynrect.rect.y + (dynrect.velocity.y* *delta);
@@ -136,19 +137,17 @@ pub fn dynamic_rectangle_vs_planet_chunks(delta:&f32,dynrect:&mut DynRect,chunks
 	let mut collisions_with:Vec<(usize,f32, Rect)> = vec![];
 
 	for i in 0..area{
-		let x = (i%search_rectangle.w as usize) as i32 + search_rectangle.x as i32;
-		let y = (i/search_rectangle.w as usize) as i32 + search_rectangle.y as i32;
+		let x = (i%search_rectangle.w as usize) as u32 + search_rectangle.x as u32;
+		let y = (i/search_rectangle.w as usize) as u32 + search_rectangle.y as u32;
 
 
-/* 		if y >= planet.size.y as usize{
-			continue;
-		}*/
-		//ok so i gotta loop in here for every chunk FUCK i realised i am looping over chunk WAIT am i? NONONO this loops over possible collisionareas YEEEES BIATCH FUCK how do i index a block in chunk
+        let chunk_x:u32 = x/32;
+        let chunk_y:u32 = y/32;
 
-        let chunk_x = x/32;
-        let chunk_y = y/32;
+        
 
-        let chunktoread = chunks_in_view.get(&IVec2{x: chunk_x, y: chunk_y});
+        let chunktoread = chunks_in_view.get(&UVec2{x: chunk_x, y: chunk_y});
+
 
         let chunktoread = match chunktoread {
             Some(chunk) => chunk,
@@ -156,7 +155,7 @@ pub fn dynamic_rectangle_vs_planet_chunks(delta:&f32,dynrect:&mut DynRect,chunks
         };
 
         
-		let blockindex:usize = x.rem_euclid(32) as usize + (y.rem_euclid(32)*32) as usize;
+		let blockindex:usize = (x%32 + (y%32)*32) as usize ;
 
 		match chunktoread[blockindex] {
 			BlockType::Dirt =>{}
@@ -172,7 +171,7 @@ pub fn dynamic_rectangle_vs_planet_chunks(delta:&f32,dynrect:&mut DynRect,chunks
         if ray_rect_info.hit{
             collisions_with.push((blockindex, ray_rect_info.t_hit_near, block));
         }
-		//println!("{}",ray_rect_info.hit);
+		
 	}
 
 	collisions_with.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
@@ -183,9 +182,6 @@ pub fn dynamic_rectangle_vs_planet_chunks(delta:&f32,dynrect:&mut DynRect,chunks
 		
 		let x = round.2.x;
 		let y = round.2.y;
-/* 		if y >= world.y_size as f32{
-			continue;
-		}*/
 		
 
 		let element = Rect{x: x as f32, y: y as f32, w: 1.0, h: 1.0};

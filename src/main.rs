@@ -6,7 +6,6 @@ use collision::DynRect;
 use macroquad::prelude::*;
 use num_complex::Complex;
 use render::Texturemanager;
-use scene::camera_pos;
 
 mod render;
 mod collision;
@@ -25,7 +24,7 @@ async fn main() {
 	let terra = Planet{
 		name: "Terra",
 		space_position: RefCell::new(Vec2{x: 0.0, y: 0.0}),
-		size: UVec2 { x: 100, y: 60 }, 
+		size: UVec2 { x: 100, y: 2}, 
 		rotation: RefCell::new(3.4),
 	};
 	
@@ -49,24 +48,23 @@ async fn main() {
 	texturemanager.imposter.set_filter(FilterMode::Nearest);
 
 
-    let mut zoom:f32 = 32.0;
+    let mut zoom:f32 = 128.0;
     
     let mut camera_zoom = Vec2{x:1./10.0, y:1./10.0};
     let mut camera_target:Vec2 = Vec2 { x: 0.0, y: 0.0 };
 
-	let mut chunks_in_view:HashMap<IVec2,[chunk::BlockType; chunk::CHUNKSIZE]> = HashMap::new();
+	let mut chunks_in_view:HashMap<UVec2,[chunk::BlockType; chunk::CHUNKSIZE]> = HashMap::new();
 	
     loop{
 		let delta = get_frame_time();
     	clear_background(BLACK);
 		movement_input(&mut player.dynrect, &delta);
-		
+		collision::dynamic_rectangle_vs_planet_chunks(&delta, &mut player.dynrect, &chunks_in_view, &player.planet.unwrap());
 		playermovement(&mut player.dynrect, &delta);
 
 		//*terra.rotation.borrow_mut() += 0.01;
 
-		camera_zoom.y = 1./screen_height();
-    	camera_zoom.x = 1./screen_width();
+
 		
     	camera_zoom *= zoom;
 		camera_target = player.dynrect.rect.center();
@@ -80,9 +78,9 @@ async fn main() {
 		
 
 		chunk::chunks_in_view_manager(&camera, &mut chunks_in_view, player.planet);
-		collision::dynamic_rectangle_vs_planet_chunks(&delta, &mut player.dynrect, &chunks_in_view, &player.planet.unwrap());
+		
 
-		set_camera_target_to_position_planet(player.dynrect.rect.center(), &player.planet.unwrap(), &mut camera.target);
+		set_camera_target_to_position_planet(player.dynrect.rect.center(), &player.planet.unwrap(), &mut camera.target, &mut camera_zoom);
 		set_camera(&camera);
 		
 		
@@ -102,7 +100,7 @@ async fn main() {
 }
 
 
-fn set_camera_target_to_position_planet(position: Vec2, planet: &Planet, camera_pos: &mut Vec2){
+fn set_camera_target_to_position_planet(position: Vec2, planet: &Planet, camera_pos: &mut Vec2, camera_zoom: &mut Vec2){
 	let normalisedplayerx = (position.x *2.0 /(planet.size.x*32) as f32 -1.0) * std::f32::consts::PI;
 	let normalisedplayery = (position.y - (planet.size.y*32) as f32) *(std::f32::consts::TAU/(planet.size.x*32) as f32);
 
@@ -113,6 +111,11 @@ fn set_camera_target_to_position_planet(position: Vec2, planet: &Planet, camera_
 
 	camera_pos.x = playercomplex.re;
 	camera_pos.y = playercomplex.im;
+
+	let zoom = f32::sqrt(f32::powf(playercomplex.re,2.)+f32::powf(playercomplex.im,2.)) *(std::f32::consts::TAU/(planet.size.x*32) as f32);
+
+	camera_zoom.y = (1.0/screen_height())/zoom;
+	camera_zoom.x = (1.0/screen_width())/zoom;
 }
 
 
@@ -120,7 +123,7 @@ fn playermovement(player: &mut DynRect, delta: &f32){
 	player.rect.x = player.rect.x + (player.velocity.x * delta);
 	player.rect.y = player.rect.y + (player.velocity.y * delta);
 	player.velocity.x = player.velocity.x * 0.96;
-	//player.velocity.y -= 9.81* delta;
+	player.velocity.y -= 9.81* delta;
 	if player.velocity.x.abs() < 4.{player.velocity.x = player.velocity.x * 0.89;};
 }
 
