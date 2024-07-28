@@ -1,6 +1,7 @@
 use macroquad::prelude::*;
 use std::{collections::HashMap, fs, io::{self}};
 use rand::srand;
+use std::cell::RefCell;
 
 pub const CHUNKSIZE:usize = 1024;
 
@@ -14,10 +15,10 @@ pub enum BlockType {
 }
 
 pub struct Planet<'a>{
-    pub space_position: &'a mut Vec2,
-	pub rotation: &'a mut f32,
+    pub space_position: RefCell<Vec2>,
+	pub rotation: RefCell<f32>,
     pub name: &'a str,
-    pub size: IVec2,
+    pub size: UVec2,
 }
 
 pub struct ChunkWithOtherInfo{
@@ -114,32 +115,32 @@ pub fn writechunkfile(chunk_info: ChunkWithOtherInfo, planet: &Planet){
         chunkstring.push_str(blockstring)
     }
 
-    let file_to_write_to = "Planets".to_string() + "/" + &planet.name.to_string()  + "/x" + &chunk_info.position.x.to_string() + "y" + &chunk_info.position.y.to_string();
-
+    let file_to_write_to = "Planets/".to_string() + &planet.name.to_string()  + "/x" + &chunk_info.position.x.to_string() + "y" + &chunk_info.position.y.to_string();
+    //println!("{}", planet.name);
     match fs::write(file_to_write_to, chunkstring){
         Ok(_) => {}
         Err(err) => eprintln!("Error: {}", err),
     }
 }
 
-pub fn chunks_in_view_manager(camera: Camera2D, chunks_in_view: &mut HashMap<IVec2,[BlockType; CHUNKSIZE]>, planet:Option<&Planet>){
+pub fn chunks_in_view_manager(camera: &Camera2D, chunks_in_view: &mut HashMap<IVec2,[BlockType; CHUNKSIZE]>, planet:Option<&Planet>){
     let planet = match planet {
 		Some(theplanet) => theplanet,
 		None => {eprintln!("WHY TF ARE YOU TRYING TO CHUNK SOMETHING THATS NOT A PLANET"); return;}
 	};
-
+    
     let search_rectangle = Rect{
 		x: ((camera.target.x - 1.0/camera.zoom.x)/32.).floor(),
 		y: ((camera.target.y - 1.0/camera.zoom.y)/32.).floor(),
 		w: ((camera.target.x + 1.0/camera.zoom.x)/32.).ceil() - ((camera.target.x - 1.0/camera.zoom.x)/32.).floor(),
 		h: ((camera.target.y + 1.0/camera.zoom.y)/32.).ceil() - ((camera.target.y - 1.0/camera.zoom.y)/32.).floor(),
 	};
-    //draw_rectangle(search_rectangle.x, search_rectangle.y, search_rectangle.w, search_rectangle.h, RED);
+    draw_rectangle(search_rectangle.x, search_rectangle.y, search_rectangle.w, search_rectangle.h, RED);
 
     let area:usize =(search_rectangle.w * search_rectangle.h).ceil() as usize; 
 
     let mut chunktoremove = chunks_in_view.clone();
-
+    
     for i in 0..area{
 		let x:i32 = (i as i32%search_rectangle.w as i32) + search_rectangle.x as i32;
 		let y:i32 = i as i32 /search_rectangle.w as i32 + search_rectangle.y as i32;
@@ -149,7 +150,7 @@ pub fn chunks_in_view_manager(camera: Camera2D, chunks_in_view: &mut HashMap<IVe
             Some(_)=> {}
             None => {
                 chunks_in_view.insert(IVec2{x: x, y: y}, readchunkfile(IVec2{x: x, y: y}, planet).chunk);
-
+                
             }
         }
     }

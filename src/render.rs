@@ -35,7 +35,7 @@ pub fn render_planet_chunks(
 		
         for index in 0..1024{
             let blockcolor:Color = match chunkinfo.1[index] {
-                BlockType::Air => Color { r: 1.0, g: 1.0, b: 1.0, a: 1.0},
+                BlockType::Air => Color { r: 1.0, g: 1.0, b: 1.0, a: 0.0},
                 BlockType::Marvin => Color { r: 0.5, g: 0.4, b: 0.0, a: 1.0},
                 BlockType::Dirt => Color { r: 0.5, g: 0.5, b: 0.1, a: 1.0},
                 BlockType::Stone => Color { r: 0.4, g: 0.4, b: 0.45, a: 1.0},
@@ -57,7 +57,7 @@ pub fn render_planet_chunks(
 
 
 			//my brain hurts
-			let pre_complex_block_position = Complex{re:normalised_block_position.y + 10.0, im:normalised_block_position.x + *planet.rotation};
+			let pre_complex_block_position = Complex{re:normalised_block_position.y + 10.0, im:normalised_block_position.x + *planet.rotation.borrow()};
 			let complex_block_position = Complex::exp(pre_complex_block_position);
 			let transformed_x = complex_block_position.re;
 			let transformed_y = complex_block_position.im;

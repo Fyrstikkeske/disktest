@@ -152,7 +152,7 @@ pub fn dynamic_rectangle_vs_planet_chunks(delta:&f32,dynrect:&mut DynRect,chunks
 
         let chunktoread = match chunktoread {
             Some(chunk) => chunk,
-            None => {eprintln!("trying to acces a chunk that doesnt exist");continue;}
+            None => {eprintln!("trying to acces a chunk that doesnt exist for collision at {} {}",chunk_x, chunk_y);continue;}
         };
 
         
@@ -172,7 +172,7 @@ pub fn dynamic_rectangle_vs_planet_chunks(delta:&f32,dynrect:&mut DynRect,chunks
         if ray_rect_info.hit{
             collisions_with.push((blockindex, ray_rect_info.t_hit_near, block));
         }
-		
+		//println!("{}",ray_rect_info.hit);
 	}
 
 	collisions_with.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
