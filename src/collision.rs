@@ -109,7 +109,7 @@ fn dynamic_rect_vs_rect(
 //fix
 pub fn dynamic_rectangle_vs_planet_chunks(delta:&f32,dynrect:&mut DynRect,chunks_in_view: &HashMap<UVec2, [BlockType; 1024]>, planet:&crate::chunk::Planet){
 
-    println!("collisions");
+    
 
 	let future_dynrect_position_x:f32 = dynrect.rect.x + (dynrect.velocity.x* *delta);
 	let future_dynrect_position_y:f32 = dynrect.rect.y + (dynrect.velocity.y* *delta);

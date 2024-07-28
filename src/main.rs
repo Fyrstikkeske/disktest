@@ -24,7 +24,7 @@ async fn main() {
 	let terra = Planet{
 		name: "Terra",
 		space_position: RefCell::new(Vec2{x: 0.0, y: 0.0}),
-		size: UVec2 { x: 100, y: 2}, 
+		size: UVec2 { x: 100, y: 3}, 
 		rotation: RefCell::new(3.4),
 	};
 	
@@ -48,7 +48,7 @@ async fn main() {
 	texturemanager.imposter.set_filter(FilterMode::Nearest);
 
 
-    let mut zoom:f32 = 128.0;
+    let mut zoom:f32 = 48.0;
     
     let mut camera_zoom = Vec2{x:1./10.0, y:1./10.0};
     let mut camera_target:Vec2 = Vec2 { x: 0.0, y: 0.0 };
@@ -58,8 +58,9 @@ async fn main() {
     loop{
 		let delta = get_frame_time();
     	clear_background(BLACK);
-		movement_input(&mut player.dynrect, &delta);
+		movement_input(&mut player.dynrect, &delta, &mut zoom);
 		collision::dynamic_rectangle_vs_planet_chunks(&delta, &mut player.dynrect, &chunks_in_view, &player.planet.unwrap());
+
 		playermovement(&mut player.dynrect, &delta);
 
 		//*terra.rotation.borrow_mut() += 0.01;
@@ -180,19 +181,24 @@ fn draw_fps(compacta_font:&Font){
 
 }
 
-fn movement_input(player: &mut DynRect, delta: &f32){
+fn movement_input(player: &mut DynRect, delta: &f32, zoom: &mut f32){
 	if is_key_down(KeyCode::A) {
-		player.velocity.x -= 40.0 * delta;
+		player.velocity.x -= 100.0 * delta;
 	}
-
 	if is_key_down(KeyCode::D) {
-		player.velocity.x += 40.0 * delta;
+		player.velocity.x += 100.0 * delta;
 	}
 	if is_key_down(KeyCode::W) {
 		player.velocity.y += 40.0 * delta;
 	}
 	if is_key_down(KeyCode::S) {
 		player.velocity.y -= 40.0 * delta;
+	}
+	if is_key_down(KeyCode::KpAdd) {
+		*zoom -= 4.0 * delta;
+	}
+	if is_key_down(KeyCode::KpSubtract) {
+		*zoom += 4.0 * delta;
 	}
 }
 

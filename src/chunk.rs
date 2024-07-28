@@ -26,11 +26,6 @@ pub struct ChunkWithOtherInfo{
     chunk: [BlockType; CHUNKSIZE],
 }
 
-struct Chunk{
-    position: UVec2,
-    chunk: [BlockType; 1024],
-}
-
 
 pub fn readchunkfile(position: UVec2, planet: &Planet) -> ChunkWithOtherInfo{
 
@@ -74,27 +69,28 @@ pub fn readchunkfile(position: UVec2, planet: &Planet) -> ChunkWithOtherInfo{
 }
 
 fn generate_chunk(seed:i32, position: UVec2) -> [BlockType; CHUNKSIZE] {
-    if position.y < 0{ return [BlockType::Air; CHUNKSIZE]};
     let mut chunk = [BlockType::Air; CHUNKSIZE];
     srand((seed as i128 + position.x as i128 + position.y as i128) as u64);
 
     let randomnumber = rand::gen_range(0, 100);
 
     for iter in 0..1024{
-        let x:u32 = iter as u32%32;
-        let y:u32 = iter as u32/32;
-        let chunk_x:f32 = x as f32/32.0 + position.x as f32;
-        let chunk_y:f32 = y as f32/32.0 + position.y as f32;
+        let local_x:u32 = iter as u32%32;
+        let local_y:u32 = iter as u32/32;
+        let planet_x:u32 = local_x + position.x*32;
+        let planet_y:u32 = local_y + position.y*32;
 
-        let sinex:f32 = f32::sin((chunk_x*3.0) + randomnumber as f32/100.);
+        let sinex:f32 = f32::sin((planet_x as f32/5.0) + randomnumber as f32/100.);
 
-        if y == 31{
+        if planet_y == 50{
             chunk[iter] = BlockType::Grass;
             continue;
         }
-        if y as f32 > (sinex+1.)*8.0{
+        if planet_y < 50{
+            if planet_y as f32> (sinex+1.)*8.0{
             chunk[iter] = BlockType::Stone;
             continue;
+            }
         }
 
     }
@@ -136,10 +132,10 @@ pub fn chunks_in_view_manager(camera: &Camera2D, chunks_in_view: &mut HashMap<UV
 	};
     
     let search_rectangle = Rect{
-		x: ((camera.target.x - 1.0/camera.zoom.x)/32.).floor(),
-		y: ((camera.target.y - 1.0/camera.zoom.y)/32.).floor(),
-		w: ((camera.target.x + 1.0/camera.zoom.x)/32.).ceil() - ((camera.target.x - 1.0/camera.zoom.x)/32.).floor(),
-		h: ((camera.target.y + 1.0/camera.zoom.y)/32.).ceil() - ((camera.target.y - 1.0/camera.zoom.y)/32.).floor(),
+		x: ((camera.target.x - 32.0)/32.).floor(),
+		y: ((camera.target.y - 32.0)/32.).floor(),
+		w: ((camera.target.x + 32.0)/32.).ceil() - ((camera.target.x - 32.0)/32.).floor(),
+		h: ((camera.target.y + 32.0)/32.).ceil() - ((camera.target.y - 32.0)/32.).floor(),
 	};
     draw_rectangle(search_rectangle.x, search_rectangle.y, search_rectangle.w, search_rectangle.h, RED);
 
