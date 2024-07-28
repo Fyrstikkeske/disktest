@@ -34,13 +34,13 @@ pub fn render_planet_chunks(
 	for chunkinfo in chunks_in_view{
 		
         for index in 0..1024{
-            let blockcolor:Color = match chunkinfo.1[index] {
-                BlockType::Air => Color { r: 1.0, g: 1.0, b: 1.0, a: 0.0},
-                BlockType::Marvin => Color { r: 0.5, g: 0.4, b: 0.0, a: 1.0},
-                BlockType::Dirt => Color { r: 0.5, g: 0.5, b: 0.1, a: 1.0},
-                BlockType::Stone => Color { r: 0.4, g: 0.4, b: 0.45, a: 1.0},
-                BlockType::Grass => Color { r: 0.0, g: 1.0, b: 0.0, a: 1.0},
-            };
+
+			let texture_to_use = match chunkinfo.1[index] {
+				BlockType::Dirt => &texturemanager.dirt,
+				BlockType::Grass => &texturemanager.grass,
+				BlockType::Stone => &texturemanager.stone,
+				_ => {continue;}
+			};
 
             let chunk_x:i32 = index as i32%32;
             let chunk_y:i32 = index as i32/32;
@@ -55,6 +55,7 @@ pub fn render_planet_chunks(
 				y: (y as f32 - (planet.size.y as f32*32.0)) *((std::f32::consts::TAU) / (planet.size.x as f32*32.0) as f32)
 			};
 
+			
 
 			//my brain hurts
 			let pre_complex_block_position = Complex{re:normalised_block_position.y + 10.0, im:normalised_block_position.x + *planet.rotation.borrow()};
@@ -62,14 +63,22 @@ pub fn render_planet_chunks(
 			let transformed_x = complex_block_position.re;
 			let transformed_y = complex_block_position.im;
 
-			//println!("{}", transformed_y);
+			let size = f32::sqrt(f32::powf(transformed_x,2.) + f32::powf(transformed_y,2.)) *((std::f32::consts::TAU)/(planet.size.x*32) as f32);
 			
-            draw_rectangle(transformed_x, transformed_y, 1.0, 1.0, blockcolor);
 			
+			draw_texture_ex(
+				texture_to_use,
+				transformed_x - size/2.,
+				transformed_y - size/2.,
+				WHITE,
+				DrawTextureParams {
+					dest_size: Some(vec2(size,size)),
+					rotation: transformed_y.atan2(transformed_x) +std::f32::consts::PI/2.,
+					..Default::default()
+				},
+			);		
         }
-        
     }
-	
 /* 
 	for i in 0..(world.x_size*world.y_size){
 		let x = i%world.x_size;

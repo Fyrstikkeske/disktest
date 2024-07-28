@@ -185,6 +185,12 @@ fn movement_input(player: &mut DynRect, delta: &f32){
 	if is_key_down(KeyCode::D) {
 		player.velocity.x += 40.0 * delta;
 	}
+	if is_key_down(KeyCode::W) {
+		player.velocity.y += 40.0 * delta;
+	}
+	if is_key_down(KeyCode::S) {
+		player.velocity.y -= 40.0 * delta;
+	}
 }
 
 
