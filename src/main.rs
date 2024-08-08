@@ -24,7 +24,7 @@ async fn main() {
 	let terra = Planet{
 		name: "Terra",
 		space_position: RefCell::new(Vec2{x: 0.0, y: 0.0}),
-		size: UVec2 { x: 100, y: 3}, 
+		size: UVec2 { x: 100, y: 20}, 
 		rotation: RefCell::new(3.4),
 	};
 	
@@ -53,7 +53,7 @@ async fn main() {
     let mut camera_zoom = Vec2{x:1./10.0, y:1./10.0};
     let mut camera_target:Vec2 = Vec2 { x: 0.0, y: 0.0 };
 
-	let mut chunks_in_view:HashMap<UVec2,[chunk::BlockType; chunk::CHUNKSIZE]> = HashMap::new();
+	let mut chunks_in_view:HashMap<IVec2,[chunk::BlockType; chunk::CHUNKSIZE]> = HashMap::new();
 	
     loop{
 		let delta = get_frame_time();
@@ -76,7 +76,7 @@ async fn main() {
         	..Default::default()
     	};
 
-		
+
 
 		chunk::chunks_in_view_manager(&camera, &mut chunks_in_view, player.planet);
 		

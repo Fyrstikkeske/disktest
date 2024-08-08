@@ -22,12 +22,12 @@ pub struct Planet<'a>{
 }
 
 pub struct ChunkWithOtherInfo{
-    position: UVec2,
+    position: IVec2,
     chunk: [BlockType; CHUNKSIZE],
 }
 
 
-pub fn readchunkfile(position: UVec2, planet: &Planet) -> ChunkWithOtherInfo{
+pub fn readchunkfile(position: IVec2, planet: &Planet) -> ChunkWithOtherInfo{
 
 
 
@@ -41,7 +41,7 @@ pub fn readchunkfile(position: UVec2, planet: &Planet) -> ChunkWithOtherInfo{
             match err.kind() {
                 io::ErrorKind::NotFound => {
                     //eprintln!("{} most likely not generated chunks at {} yet", err, position); 
-                    return ChunkWithOtherInfo{position: position, chunk: generate_chunk(6, position)};}
+                    return ChunkWithOtherInfo{position: position, chunk: generate_chunk(6, position, planet)};}
                 _ => {
                     eprintln!("{} at chunk {}", err, position); 
                     return ChunkWithOtherInfo{position: position, chunk: [BlockType::Air; 1024]};}
@@ -68,26 +68,50 @@ pub fn readchunkfile(position: UVec2, planet: &Planet) -> ChunkWithOtherInfo{
     return ChunkWithOtherInfo{position: position, chunk: chunk};
 }
 
-fn generate_chunk(seed:i32, position: UVec2) -> [BlockType; CHUNKSIZE] {
+fn generate_chunk(seed:i32, position: IVec2, planet: &Planet) -> [BlockType; CHUNKSIZE] {
     let mut chunk = [BlockType::Air; CHUNKSIZE];
     srand((seed as i128 + position.x as i128 + position.y as i128) as u64);
 
     let randomnumber = rand::gen_range(0, 100);
 
     for iter in 0..1024{
-        let local_x:u32 = iter as u32%32;
-        let local_y:u32 = iter as u32/32;
-        let planet_x:u32 = local_x + position.x*32;
-        let planet_y:u32 = local_y + position.y*32;
+        let local_x:i32 = iter as i32%32;
+        let local_y:i32 = iter as i32/32;
+        let planet_x:i32 = local_x + position.x*32;
+        let planet_y:i32 = local_y + position.y*32;
 
         let sinex:f32 = f32::sin((planet_x as f32/5.0) + randomnumber as f32/100.);
 
-        if planet_y == 50{
+        if planet_y == 0{
+            chunk[iter] = BlockType::Stone;
+            continue;
+        }
+
+        if planet_y == 100{
+            chunk[iter] = BlockType::Air;
+            continue;
+        }
+
+        if planet_y == 99{
+            chunk[iter] = BlockType::Air;
+            continue;
+        }
+
+        if planet_x == 10{
+            chunk[iter] = BlockType::Air;
+            continue;
+        }
+        if planet_x == 11{
+            chunk[iter] = BlockType::Air;
+            continue;
+        }
+
+        if planet_y == (planet.size.y*32) as i32 + 31{
             chunk[iter] = BlockType::Grass;
             continue;
         }
-        if planet_y < 50{
-            if planet_y as f32> (sinex+1.)*8.0{
+        if planet_y < (planet.size.y*32) as i32 + 31{
+            if planet_y as f32> ((sinex+1.)*8.0) + 10.0{
             chunk[iter] = BlockType::Stone;
             continue;
             }
@@ -125,18 +149,22 @@ pub fn writechunkfile(chunk_info: ChunkWithOtherInfo, planet: &Planet){
     }
 }
 
-pub fn chunks_in_view_manager(camera: &Camera2D, chunks_in_view: &mut HashMap<UVec2,[BlockType; CHUNKSIZE]>, planet:Option<&Planet>){
+pub fn chunks_in_view_manager(camera: &Camera2D, chunks_in_view: &mut HashMap<IVec2,[BlockType; CHUNKSIZE]>, planet:Option<&Planet>){
     let planet = match planet {
 		Some(theplanet) => theplanet,
 		None => {eprintln!("WHY TF ARE YOU TRYING TO CHUNK SOMETHING THATS NOT A PLANET"); return;}
 	};
-    
+    let scale = 1.4;
+
     let search_rectangle = Rect{
-		x: ((camera.target.x - 32.0)/32.).floor(),
-		y: ((camera.target.y - 32.0)/32.).floor(),
-		w: ((camera.target.x + 32.0)/32.).ceil() - ((camera.target.x - 32.0)/32.).floor(),
-		h: ((camera.target.y + 32.0)/32.).ceil() - ((camera.target.y - 32.0)/32.).floor(),
+		x: (((camera.target.x - 32.0)/32.).floor()) - (scale-0.5)/2.0,
+		y: (((camera.target.y - 32.0)/32.).floor()) - (scale-0.5)/2.0,
+		w: (((camera.target.x + 32.0)/32.).ceil() - ((camera.target.x - 32.0)/32.).floor()) + scale,
+		h: (((camera.target.y + 32.0)/32.).ceil() - ((camera.target.y - 32.0)/32.).floor()) + scale,
 	};
+
+    
+
     draw_rectangle(search_rectangle.x, search_rectangle.y, search_rectangle.w, search_rectangle.h, RED);
 
     let area:usize =(search_rectangle.w * search_rectangle.h).ceil() as usize; 
@@ -144,19 +172,16 @@ pub fn chunks_in_view_manager(camera: &Camera2D, chunks_in_view: &mut HashMap<UV
     let mut chunktoremove = chunks_in_view.clone();
     
     for i in 0..area{
-		let x:u32 = (i as u32 %search_rectangle.w as u32) + search_rectangle.x as u32;
-		let y:u32 = i as u32 /search_rectangle.w as u32 + search_rectangle.y as u32;
-        chunktoremove.remove(&UVec2{x: x, y: y});
+		let x:i32 = (i as i32 %search_rectangle.w as i32) + search_rectangle.x as i32;
+		let y:i32 = i as i32 /search_rectangle.w as i32 + search_rectangle.y as i32;
+        chunktoremove.remove(&IVec2{x: x, y: y});
+        
 
-        if y >= planet.size.y || x >= planet.size.x{
-            eprintln!("Trying to read a chunk above or to the right of the planet");
-            continue;
-        }
-        match chunks_in_view.get(&UVec2{x: x, y: y}){
+        match chunks_in_view.get(&IVec2{x: x, y: y}){
             Some(_)=> {}
             None => {
-                chunks_in_view.insert(UVec2{x: x, y: y}, readchunkfile(UVec2{x: x, y: y}, planet).chunk);
-                
+                if y > planet.size.y as i32 {chunks_in_view.insert(IVec2{x: x, y: y},[BlockType::Air; CHUNKSIZE]);}
+                else{chunks_in_view.insert(IVec2{x: x, y: y}, readchunkfile(IVec2{x: x.rem_euclid(planet.size.x as i32), y: y}, planet).chunk);}
             }
         }
     }

@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use macroquad::{
-	color::{Color, WHITE}, math::{vec2, UVec2, Vec2}, shapes::draw_rectangle, texture::{draw_texture_ex, 
+	color::{Color, WHITE}, math::{vec2, UVec2, Vec2, IVec2}, shapes::draw_rectangle, texture::{draw_texture_ex, 
 		DrawTextureParams,
 		Texture2D,
 		}
@@ -27,7 +27,7 @@ pub struct Texturemanager{
 pub fn render_planet_chunks(
 	planet : &Planet, 
 	point : &Vec2,
-	chunks_in_view: &HashMap<UVec2, [BlockType; 1024]>,
+	chunks_in_view: &HashMap<IVec2, [BlockType; 1024]>,
 	texturemanager: &Texturemanager,
 ){	
 
