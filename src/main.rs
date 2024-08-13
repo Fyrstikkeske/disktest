@@ -56,6 +56,8 @@ async fn main() {
 	let mut chunks_in_view:HashMap<IVec2,[chunk::BlockType; chunk::CHUNKSIZE]> = HashMap::new();
 	
     loop{
+		
+
 		let delta = get_frame_time();
     	clear_background(BLACK);
 		movement_input(&mut player.dynrect, &delta, &mut zoom);
@@ -69,7 +71,6 @@ async fn main() {
 		
     	camera_zoom *= zoom;
 		camera_target = player.dynrect.rect.center();
-
     	let mut camera = Camera2D {
         	zoom: camera_zoom,
         	target: camera_target,
