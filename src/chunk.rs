@@ -96,7 +96,18 @@ fn generate_chunk(seed:i32, position: IVec2, planet: &Planet) -> [BlockType; CHU
             chunk[iter] = BlockType::Air;
             continue;
         }
-
+        if planet_x == (planet.size.x * 32) as i32 -33 {
+            chunk[iter] = BlockType::Stone;
+            continue;
+        }
+        if planet_x == (planet.size.x * 32) as i32 -32 {
+            chunk[iter] = BlockType::Stone;
+            continue;
+        }
+        if planet_x == (planet.size.x * 32) as i32 -31 {
+            chunk[iter] = BlockType::Air;
+            continue;
+        }
         if planet_x == 10{
             chunk[iter] = BlockType::Air;
             continue;
@@ -111,7 +122,7 @@ fn generate_chunk(seed:i32, position: IVec2, planet: &Planet) -> [BlockType; CHU
             continue;
         }
         if planet_y < (planet.size.y*32) as i32 + 31{
-            if planet_y as f32> ((sinex+1.)*8.0) + 10.0{
+            if planet_y as f32> ((sinex+1.)*8.0) + 140.0{
             chunk[iter] = BlockType::Stone;
             continue;
             }

@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, vec};
 
 
 use chunk::Planet;
@@ -24,7 +24,7 @@ async fn main() {
 	let terra = Planet{
 		name: "Terra",
 		space_position: RefCell::new(Vec2{x: 0.0, y: 0.0}),
-		size: UVec2 { x: 100, y: 20}, 
+		size: UVec2 { x: 6, y: 20}, 
 		rotation: RefCell::new(3.4),
 	};
 	
@@ -49,7 +49,7 @@ async fn main() {
 
 
     let mut zoom:f32 = 48.0;
-    
+    let mut camera_rotation:f32 = 0.0;
     let mut camera_zoom = Vec2{x:1./10.0, y:1./10.0};
     let mut camera_target:Vec2 = Vec2 { x: 0.0, y: 0.0 };
 
@@ -65,26 +65,26 @@ async fn main() {
 
 		playermovement(&mut player.dynrect, &delta);
 
-		//*terra.rotation.borrow_mut() += 0.01;
-
+		*terra.rotation.borrow_mut() += 0.01;
 
 		
+
     	camera_zoom *= zoom;
 		camera_target = player.dynrect.rect.center();
     	let mut camera = Camera2D {
         	zoom: camera_zoom,
         	target: camera_target,
+			rotation: camera_rotation,
         	..Default::default()
     	};
 
-
+		
 
 		chunk::chunks_in_view_manager(&camera, &mut chunks_in_view, player.planet);
 		
 
-		set_camera_target_to_position_planet(player.dynrect.rect.center(), &player.planet.unwrap(), &mut camera.target, &mut camera_zoom);
+		set_camera_target_to_position_planet(player.dynrect.rect.center(), &player.planet.unwrap(), &mut camera.target, &mut camera_zoom, &mut camera_rotation);
 		set_camera(&camera);
-		
 		
 
 		//make it so that i only render the world the player is on, The situation in where he can see 2 planets at the same time should never happen
@@ -92,7 +92,16 @@ async fn main() {
 		render::render_planet_chunks(&player.planet.unwrap(), &player.dynrect.rect.center(),&chunks_in_view, &texturemanager);
 		
 		render_entity(&player.planet.unwrap(), &player, &texturemanager);
+		let camamara = camera.screen_to_world(mouse_position().into());
 
+		let cemera = inverse_disk_position(camamara, &terra);
+
+		let chemera:collision::MovableEntity = collision::MovableEntity{
+			dynrect: collision::DynRect{rect:Rect{x:cemera.x, y: cemera.y, w: 1.0, h:1.0}, velocity: Vec2::ZERO},
+			planet: Some(&terra),
+		};
+
+		render_entity(&player.planet.unwrap(), &chemera, &texturemanager);
 
 		set_default_camera();
     	draw_fps(&compacta_font);
@@ -102,7 +111,9 @@ async fn main() {
 }
 
 
-fn set_camera_target_to_position_planet(position: Vec2, planet: &Planet, camera_pos: &mut Vec2, camera_zoom: &mut Vec2){
+
+
+fn set_camera_target_to_position_planet(position: Vec2, planet: &Planet, camera_pos: &mut Vec2, camera_zoom: &mut Vec2, camera_rotation: &mut f32){
 	let normalisedplayerx = (position.x *2.0 /(planet.size.x*32) as f32 -1.0) * std::f32::consts::PI;
 	let normalisedplayery = (position.y - (planet.size.y*32) as f32) *(std::f32::consts::TAU/(planet.size.x*32) as f32);
 
@@ -118,6 +129,9 @@ fn set_camera_target_to_position_planet(position: Vec2, planet: &Planet, camera_
 
 	camera_zoom.y = (1.0/screen_height())/zoom;
 	camera_zoom.x = (1.0/screen_width())/zoom;
+
+	
+	*camera_rotation = (playercomplex.re.atan2(playercomplex.im) * (360./std::f32::consts::TAU)) + 180.;
 }
 
 
@@ -125,9 +139,10 @@ fn playermovement(player: &mut DynRect, delta: &f32){
 	player.rect.x = player.rect.x + (player.velocity.x * delta);
 	player.rect.y = player.rect.y + (player.velocity.y * delta);
 	player.velocity.x = player.velocity.x * 0.96;
-	player.velocity.y -= 9.81* delta;
+	//player.velocity.y -= 9.81* delta;
 	if player.velocity.x.abs() < 4.{player.velocity.x = player.velocity.x * 0.89;};
 }
+	
 
 
 
@@ -139,9 +154,8 @@ fn render_entity(
 	//Def its own function, should be adapted for any entity
 
 	// This should maybe be put in its own function, could alse be used as a base for render_world() unsure
-	let normalisedplayerx = (entity.dynrect.rect.x *2.0 /(planet.size.x*32) as f32 -1.0) * std::f32::consts::PI;
+	let normalisedplayerx = (((entity.dynrect.rect.x *2.0) /(planet.size.x*32) as f32) -1.0) * std::f32::consts::PI;
 	let normalisedplayery = (entity.dynrect.rect.y - (planet.size.y*32) as f32) *(std::f32::consts::TAU/(planet.size.x*32) as f32);
-
 
 	//this will be maybe a little more difficoult.
 	//world_offset_height must equal a value that makes the entity be in the right y value
@@ -166,7 +180,24 @@ fn render_entity(
 			rotation: player_node_y.atan2(player_node_x)+std::f32::consts::FRAC_PI_2,
 			..Default::default()
 	}
+
+	
 );
+    
+}
+
+fn inverse_disk_position(vec: Vec2, planet: &Planet) -> Vec2{
+
+	let complex = Complex{re: vec.y, im: vec.x};
+
+    let reversed = complex.ln();
+
+    let normalisedy = reversed.re - 10.0;
+    let normalisedx = reversed.im + *planet.rotation.borrow() - std::f32::consts::FRAC_PI_2;
+	println!("The Player: X{}",*planet.rotation.borrow());
+    let position_x = ((normalisedx / std::f32::consts::PI) + 1.0) * (planet.size.x * 32)as f32 / 2.0;
+    let position_y = (normalisedy / (std::f32::consts::TAU / (planet.size.x * 32)as f32)) + (planet.size.y * 32)as f32;
+	Vec2{x: position_x * -1.0, y: position_y}
 }
 
 fn draw_fps(compacta_font:&Font){

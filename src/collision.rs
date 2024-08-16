@@ -106,93 +106,89 @@ fn dynamic_rect_vs_rect(
 }
 
 
-//fix
-pub fn dynamic_rectangle_vs_planet_chunks(delta:&f32,dynrect:&mut DynRect,chunks_in_view: &HashMap<IVec2, [BlockType; 1024]>, planet:&crate::chunk::Planet){
+//fix(done), chatgpt fixed this
+pub fn dynamic_rectangle_vs_planet_chunks(
+    delta: &f32,
+    dynrect: &mut DynRect,
+    chunks_in_view: &HashMap<IVec2, [BlockType; 1024]>,
+    planet: &crate::chunk::Planet,
+) {
+    let future_dynrect_position_x: f32 = dynrect.rect.x + (dynrect.velocity.x * *delta);
+    let future_dynrect_position_y: f32 = dynrect.rect.y + (dynrect.velocity.y * *delta);
 
+    let combined_block = dynrect.rect.combine_with(Rect {
+        x: future_dynrect_position_x,
+        y: future_dynrect_position_y,
+        w: dynrect.rect.w,
+        h: dynrect.rect.h,
+    });
 
+    let search_rectangle = Rect {
+        x: combined_block.x.floor(),
+        y: combined_block.y.floor(),
+        w: combined_block.right().ceil() - combined_block.x.floor(),
+        h: combined_block.bottom().ceil() - combined_block.y.floor(),
+    };
 
-	let future_dynrect_position_x:f32 = dynrect.rect.x + (dynrect.velocity.x* *delta);
-	let future_dynrect_position_y:f32 = dynrect.rect.y + (dynrect.velocity.y* *delta);
+    let area: usize = (search_rectangle.w * search_rectangle.h) as usize;
+    let mut collisions_with: Vec<(usize, f32, Rect)> = vec![];
 
+    for i in 0..area {
+        let x = (i % search_rectangle.w as usize) as i32 + search_rectangle.x as i32;
+        let y = (i / search_rectangle.w as usize) as i32 + search_rectangle.y as i32;
 
-	let combined_block = dynrect.rect.combine_with(Rect{
-		x: future_dynrect_position_x, 
-		y: future_dynrect_position_y,
-		w: dynrect.rect.w,
-		h: dynrect.rect.h,
-	});
+        let chunk_x: i32 = x.div_euclid(32);
+        let chunk_y: i32 = y.div_euclid(32);
 
-
-
-	let search_rectangle = Rect{
-		x: combined_block.x.floor(),
-		y: combined_block.y.floor(),
-		w: combined_block.right().ceil() - combined_block.x.floor(),
-		h: combined_block.bottom().ceil() - combined_block.y.floor(),
-	};
-
-
-	let area:usize =(search_rectangle.w * search_rectangle.h) as usize; 
-
-	let mut collisions_with:Vec<(usize,f32, Rect)> = vec![];
-
-	for i in 0..area{
-		let x = (i%search_rectangle.w as usize) as i32 + search_rectangle.x as i32;
-		let y = (i/search_rectangle.w as usize) as i32 + search_rectangle.y as i32;
-
-
-        let chunk_x:i32 = if x >= 0 {
-            (x + 16) / 32
-        } else {
-            (x - 16) / 32
-        };
-        let chunk_y:i32 = y/32;
-
-
-
-        let chunktoread = chunks_in_view.get(&IVec2{x: chunk_x, y: chunk_y});
-
+        let chunktoread = chunks_in_view.get(&IVec2 { x: chunk_x, y: chunk_y });
 
         let chunktoread = match chunktoread {
             Some(chunk) => chunk,
-            None => {eprintln!("trying to acces a chunk that doesnt exist for collision at {} {}",chunk_x, chunk_y);continue;}
+            None => {
+                eprintln!(
+                    "Trying to access a chunk that doesn't exist for collision at {} {}",
+                    chunk_x, chunk_y
+                );
+                continue;
+            }
         };
 
-        
-		let blockindex:usize = (x.rem_euclid(32) + (y.rem_euclid(32))*32) as usize ;
-        
-		match chunktoread[blockindex] {
-			BlockType::Dirt =>{}
-			BlockType::Grass =>{}
-			BlockType::Stone =>{}
-			_ =>{continue;}
-		}
-		
-		
-		let block = Rect{x: x as f32 , y: y as f32, w: 1.0, h: 1.0};
+        let blockindex: usize = (x.rem_euclid(32) + (y.rem_euclid(32)) * 32) as usize;
+
+        match chunktoread[blockindex] {
+            BlockType::Dirt | BlockType::Grass | BlockType::Stone => {}
+            _ => continue,
+        }
+
+        let block = Rect {
+            x: x as f32,
+            y: y as f32,
+            w: 1.0,
+            h: 1.0,
+        };
         let ray_rect_info = dynamic_rect_vs_rect(&block, dynrect, delta);
-		
-        if ray_rect_info.hit{
+
+        if ray_rect_info.hit {
             collisions_with.push((blockindex, ray_rect_info.t_hit_near, block));
         }
-		
-	}
+    }
 
-	collisions_with.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
+    collisions_with.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
 
-	for round in collisions_with{
-		
-		
-		
-		let x = round.2.x;
-		let y = round.2.y;
-		
+    for round in collisions_with {
+        let x = round.2.x;
+        let y = round.2.y;
 
-		let element = Rect{x: x as f32, y: y as f32, w: 1.0, h: 1.0};
-		let ray_rect_info = dynamic_rect_vs_rect(&element, dynrect, &delta);
-		if ray_rect_info.hit{
-			dynrect.velocity += ray_rect_info.contact_normal * dynrect.velocity.abs() * (1.0-ray_rect_info.t_hit_near);
-		}
-	}
-
+        let element = Rect {
+            x: x as f32,
+            y: y as f32,
+            w: 1.0,
+            h: 1.0,
+        };
+        let ray_rect_info = dynamic_rect_vs_rect(&element, dynrect, &delta);
+        if ray_rect_info.hit {
+            dynrect.velocity += ray_rect_info.contact_normal * dynrect.velocity.abs()
+                * (1.0 - ray_rect_info.t_hit_near);
+        }
+    }
 }
