@@ -1,7 +1,7 @@
 use std::{cell::RefCell, collections::HashMap, vec};
 
 
-use chunk::Planet;
+use chunk::{BlockType, ChunkWithOtherInfo, Planet};
 use collision::DynRect;
 use macroquad::prelude::*;
 use num_complex::Complex;
@@ -24,8 +24,8 @@ async fn main() {
 	let terra = Planet{
 		name: "Terra",
 		space_position: RefCell::new(Vec2{x: 0.0, y: 0.0}),
-		size: UVec2 { x: 6, y: 20}, 
-		rotation: RefCell::new(3.4),
+		size: UVec2 { x: 3, y: 20}, 
+		rotation: RefCell::new(0.0),
 	};
 	
 
@@ -62,10 +62,10 @@ async fn main() {
     	clear_background(BLACK);
 		movement_input(&mut player.dynrect, &delta, &mut zoom);
 		collision::dynamic_rectangle_vs_planet_chunks(&delta, &mut player.dynrect, &chunks_in_view, &player.planet.unwrap());
-
 		playermovement(&mut player.dynrect, &delta);
+		
 
-		*terra.rotation.borrow_mut() += 0.01;
+		//*terra.rotation.borrow_mut() += 0.01;
 
 		
 
@@ -77,7 +77,7 @@ async fn main() {
 			rotation: camera_rotation,
         	..Default::default()
     	};
-
+		
 		
 
 		chunk::chunks_in_view_manager(&camera, &mut chunks_in_view, player.planet);
@@ -85,24 +85,15 @@ async fn main() {
 
 		set_camera_target_to_position_planet(player.dynrect.rect.center(), &player.planet.unwrap(), &mut camera.target, &mut camera_zoom, &mut camera_rotation);
 		set_camera(&camera);
-		
-
+		if is_mouse_button_down(MouseButton::Right) {
+			place_block(&camera, &terra, &mut chunks_in_view);
+		}
 		//make it so that i only render the world the player is on, The situation in where he can see 2 planets at the same time should never happen
 		//something like this render_world(player.planet), shit also need to add a point in which to see
 		render::render_planet_chunks(&player.planet.unwrap(), &player.dynrect.rect.center(),&chunks_in_view, &texturemanager);
 		
 		render_entity(&player.planet.unwrap(), &player, &texturemanager);
-		let camamara = camera.screen_to_world(mouse_position().into());
-
-		let cemera = inverse_disk_position(camamara, &terra);
-
-		let chemera:collision::MovableEntity = collision::MovableEntity{
-			dynrect: collision::DynRect{rect:Rect{x:cemera.x, y: cemera.y, w: 1.0, h:1.0}, velocity: Vec2::ZERO},
-			planet: Some(&terra),
-		};
-
-		render_entity(&player.planet.unwrap(), &chemera, &texturemanager);
-
+		
 		set_default_camera();
     	draw_fps(&compacta_font);
 		
@@ -110,7 +101,36 @@ async fn main() {
     }
 }
 
+fn place_block(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<IVec2,[chunk::BlockType; chunk::CHUNKSIZE]>){
+	let camamara = camera.screen_to_world(mouse_position().into());
 
+	let mut cemera:Vec2 = inverse_disk_position(camamara, &planet) + 0.5;
+
+	
+
+	if cemera.x <= 0.0 {cemera.x -= 1.0}
+
+	let cemera:IVec2 = IVec2 { x: cemera.x as i32, y: cemera.y as i32 };
+
+	let chunk_x: i32 = cemera.x.rem_euclid(planet.size.x as i32 * 32).div_euclid(32);
+	let chunk_y: i32 = cemera.y.div_euclid(32);
+	println!("chunk: {}, mouse: {}", chunk_x, cemera.x);
+	let chunktoread: Option<&mut [BlockType; 1024]> = chunks_in_view.get_mut(&IVec2 { x: chunk_x, y: chunk_y });
+
+	let chunktoread: &mut [BlockType; 1024] = match chunktoread {
+		Some(chunk) => chunk,
+		None => {
+			eprintln!(
+				"Trying to access a chunk that doesn't exist for collision at {} {} FOR PLACE BLOCK FUNCTION",
+				chunk_x, chunk_y
+			);
+			return;
+		}
+	};
+	let blockindex: usize = (cemera.x.rem_euclid(32) + (cemera.y.rem_euclid(32)) * 32) as usize;
+	chunktoread[blockindex] = BlockType::Grass;
+
+}
 
 
 fn set_camera_target_to_position_planet(position: Vec2, planet: &Planet, camera_pos: &mut Vec2, camera_zoom: &mut Vec2, camera_rotation: &mut f32){
@@ -131,7 +151,7 @@ fn set_camera_target_to_position_planet(position: Vec2, planet: &Planet, camera_
 	camera_zoom.x = (1.0/screen_width())/zoom;
 
 	
-	*camera_rotation = (playercomplex.re.atan2(playercomplex.im) * (360./std::f32::consts::TAU)) + 180.;
+	*camera_rotation = (camera_pos.x.atan2(camera_pos.y) * (360./std::f32::consts::TAU)) + 180.;
 }
 
 
@@ -194,7 +214,7 @@ fn inverse_disk_position(vec: Vec2, planet: &Planet) -> Vec2{
 
     let normalisedy = reversed.re - 10.0;
     let normalisedx = reversed.im + *planet.rotation.borrow() - std::f32::consts::FRAC_PI_2;
-	println!("The Player: X{}",*planet.rotation.borrow());
+	
     let position_x = ((normalisedx / std::f32::consts::PI) + 1.0) * (planet.size.x * 32)as f32 / 2.0;
     let position_y = (normalisedy / (std::f32::consts::TAU / (planet.size.x * 32)as f32)) + (planet.size.y * 32)as f32;
 	Vec2{x: position_x * -1.0, y: position_y}

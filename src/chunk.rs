@@ -29,8 +29,6 @@ pub struct ChunkWithOtherInfo{
 
 pub fn readchunkfile(position: IVec2, planet: &Planet) -> ChunkWithOtherInfo{
 
-
-
     let mut chunk:[BlockType; CHUNKSIZE] = [BlockType::Air; CHUNKSIZE];
 
     let file_to_read_from = "Planets".to_string() + "/" + &planet.name.to_string()  + "/x" + &position.x.to_string() + "y" + &position.y.to_string();
@@ -197,8 +195,8 @@ pub fn chunks_in_view_manager(camera: &Camera2D, chunks_in_view: &mut HashMap<IV
     let mut chunktoremove = chunks_in_view.clone();
     
     for i in 0..area{
-		let x:i32 = (i as i32 %search_rectangle.w as i32) + search_rectangle.x as i32;
-		let y:i32 = i as i32 /search_rectangle.w as i32 + search_rectangle.y as i32;
+		let x:i32 = ((i as i32 %search_rectangle.w as i32) + search_rectangle.x as i32).rem_euclid(planet.size.x as i32);
+		let y:i32 = (i as i32 /search_rectangle.w as i32 + search_rectangle.y as i32).rem_euclid(planet.size.y as i32);
         
 
         chunktoremove.remove(&IVec2{x: x, y: y});
