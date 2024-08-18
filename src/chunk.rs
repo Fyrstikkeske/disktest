@@ -21,9 +21,10 @@ pub struct Planet<'a>{
     pub size: UVec2,
 }
 
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ChunkWithOtherInfo{
-    position: IVec2,
-    chunk: [BlockType; CHUNKSIZE],
+    pub position: IVec2,
+    pub chunk: [BlockType; CHUNKSIZE],
 }
 
 
@@ -115,7 +116,7 @@ fn generate_chunk(seed:i32, position: IVec2, planet: &Planet) -> [BlockType; CHU
             continue;
         }
 
-        if planet_y == (planet.size.y*32) as i32 + 31{
+        if planet_y == (planet.size.y*32) as i32 -1{
             chunk[iter] = BlockType::Grass;
             continue;
         }
@@ -158,7 +159,7 @@ pub fn writechunkfile(chunk_info: ChunkWithOtherInfo, planet: &Planet){
     }
 }
 
-pub fn chunks_in_view_manager(camera: &Camera2D, chunks_in_view: &mut HashMap<IVec2,[BlockType; CHUNKSIZE]>, planet:Option<&Planet>){
+pub fn chunks_in_view_manager(camera: &Camera2D, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>, planet:Option<&Planet>){
     let planet = match planet {
 		Some(theplanet) => theplanet,
 		None => {eprintln!("WHY TF ARE YOU TRYING TO CHUNK SOMETHING THATS NOT A PLANET"); return;}
@@ -205,13 +206,13 @@ pub fn chunks_in_view_manager(camera: &Camera2D, chunks_in_view: &mut HashMap<IV
         match chunks_in_view.get(&IVec2{x: x, y: y}){
             Some(_)=> {}
             None => {
-                if y > planet.size.y as i32 {chunks_in_view.insert(IVec2{x: x, y: y},[BlockType::Air; CHUNKSIZE]);}
-                else{chunks_in_view.insert(IVec2{x: x, y: y}, readchunkfile(IVec2{x: x.rem_euclid(planet.size.x as i32), y: y}, planet).chunk);}
+                if y > planet.size.y as i32 {chunks_in_view.insert(IVec2{x: x, y: y},ChunkWithOtherInfo{chunk: [BlockType::Air; CHUNKSIZE], position: IVec2 { x: (i as i32 %search_rectangle.w as i32) + search_rectangle.x as i32, y: i as i32 /search_rectangle.w as i32 + search_rectangle.y as i32 }});}
+                else{chunks_in_view.insert(IVec2{x: x, y: y}, ChunkWithOtherInfo{chunk: readchunkfile(IVec2{x: x, y: y}, planet).chunk, position: IVec2 { x: (i as i32 %search_rectangle.w as i32) + search_rectangle.x as i32, y: i as i32 /search_rectangle.w as i32 + search_rectangle.y as i32 }});}
             }
         }
     }
     for (key, chunk) in chunktoremove{
-        writechunkfile(ChunkWithOtherInfo{position: key, chunk:chunk}, planet);
+        writechunkfile(ChunkWithOtherInfo{position: key, chunk:chunk.chunk}, planet);
         chunks_in_view.remove(&key);
     }
 }

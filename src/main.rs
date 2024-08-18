@@ -24,7 +24,7 @@ async fn main() {
 	let terra = Planet{
 		name: "Terra",
 		space_position: RefCell::new(Vec2{x: 0.0, y: 0.0}),
-		size: UVec2 { x: 3, y: 20}, 
+		size: UVec2 { x: 20, y: 20}, 
 		rotation: RefCell::new(0.0),
 	};
 	
@@ -53,7 +53,7 @@ async fn main() {
     let mut camera_zoom = Vec2{x:1./10.0, y:1./10.0};
     let mut camera_target:Vec2 = Vec2 { x: 0.0, y: 0.0 };
 
-	let mut chunks_in_view:HashMap<IVec2,[chunk::BlockType; chunk::CHUNKSIZE]> = HashMap::new();
+	let mut chunks_in_view:HashMap<IVec2,ChunkWithOtherInfo> = HashMap::new();
 	
     loop{
 		
@@ -101,7 +101,7 @@ async fn main() {
     }
 }
 
-fn place_block(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<IVec2,[chunk::BlockType; chunk::CHUNKSIZE]>){
+fn place_block(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>){
 	let camamara = camera.screen_to_world(mouse_position().into());
 
 	let mut cemera:Vec2 = inverse_disk_position(camamara, &planet) + 0.5;
@@ -114,21 +114,22 @@ fn place_block(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<
 
 	let chunk_x: i32 = cemera.x.rem_euclid(planet.size.x as i32 * 32).div_euclid(32);
 	let chunk_y: i32 = cemera.y.div_euclid(32);
-	println!("chunk: {}, mouse: {}", chunk_x, cemera.x);
-	let chunktoread: Option<&mut [BlockType; 1024]> = chunks_in_view.get_mut(&IVec2 { x: chunk_x, y: chunk_y });
+	println!("chunk: {}, mouse: {}", cemera.x, cemera.y);
+	let chunktoread: Option<&mut ChunkWithOtherInfo> = chunks_in_view.get_mut(&IVec2 { x: chunk_x, y: chunk_y });
 
-	let chunktoread: &mut [BlockType; 1024] = match chunktoread {
+	let chunktoread: &mut ChunkWithOtherInfo = match chunktoread {
 		Some(chunk) => chunk,
 		None => {
 			eprintln!(
-				"Trying to access a chunk that doesn't exist for collision at {} {} FOR PLACE BLOCK FUNCTION",
+				"trying to place at something that dont exist {} {} FOR PLACE BLOCK FUNCTION",
 				chunk_x, chunk_y
 			);
 			return;
 		}
 	};
+	
 	let blockindex: usize = (cemera.x.rem_euclid(32) + (cemera.y.rem_euclid(32)) * 32) as usize;
-	chunktoread[blockindex] = BlockType::Grass;
+	chunktoread.chunk[blockindex] = BlockType::Grass;
 
 }
 
@@ -238,7 +239,7 @@ fn movement_input(player: &mut DynRect, delta: &f32, zoom: &mut f32){
 		player.velocity.x -= 100.0 * delta;
 	}
 	if is_key_down(KeyCode::D) {
-		player.velocity.x += 100.0 * delta;
+		player.velocity.x += 1000.0 * delta;
 	}
 	if is_key_down(KeyCode::W) {
 		player.velocity.y += 40.0 * delta;

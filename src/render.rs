@@ -27,7 +27,7 @@ pub struct Texturemanager{
 pub fn render_planet_chunks(
 	planet : &Planet, 
 	point : &Vec2,
-	chunks_in_view: &HashMap<IVec2, [BlockType; 1024]>,
+	chunks_in_view: &HashMap<IVec2, crate::chunk::ChunkWithOtherInfo>,
 	texturemanager: &Texturemanager,
 ){	
 
@@ -35,7 +35,7 @@ pub fn render_planet_chunks(
 		
         for index in 0..1024{
 
-			let texture_to_use = match chunkinfo.1[index] {
+			let texture_to_use = match chunkinfo.1.chunk[index] {
 				BlockType::Dirt => &texturemanager.dirt,
 				BlockType::Grass => &texturemanager.grass,
 				BlockType::Stone => &texturemanager.stone,

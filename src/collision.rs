@@ -1,8 +1,8 @@
 use std::collections::HashMap;
 
-use macroquad::math::{UVec2, Rect, Vec2, IVec2,};
+use macroquad::math::{Rect, Vec2, IVec2,};
 
-use crate::chunk::{BlockType, Planet};
+use crate::chunk::{BlockType, ChunkWithOtherInfo, Planet};
 
 pub struct MovableEntity<'a>{
     pub dynrect: DynRect,
@@ -110,7 +110,7 @@ fn dynamic_rect_vs_rect(
 pub fn dynamic_rectangle_vs_planet_chunks(
     delta: &f32,
     dynrect: &mut DynRect,
-    chunks_in_view: &HashMap<IVec2, [BlockType; 1024]>,
+    chunks_in_view: &HashMap<IVec2,ChunkWithOtherInfo>,
     planet: &crate::chunk::Planet,
 ) {
     let future_dynrect_position_x: f32 = dynrect.rect.x + (dynrect.velocity.x * *delta);
@@ -139,8 +139,8 @@ pub fn dynamic_rectangle_vs_planet_chunks(
 
         let chunk_x: i32 = x.div_euclid(32);
         let chunk_y: i32 = y.div_euclid(32);
-
-        let chunktoread = chunks_in_view.get(&IVec2 { x: chunk_x, y: chunk_y });
+        if chunk_y >= planet.size.y as i32{continue}
+        let chunktoread = chunks_in_view.get(&IVec2 { x: chunk_x.rem_euclid(planet.size.x as i32), y: chunk_y.rem_euclid(planet.size.y as i32) });
 
         let chunktoread = match chunktoread {
             Some(chunk) => chunk,
@@ -154,8 +154,8 @@ pub fn dynamic_rectangle_vs_planet_chunks(
         };
 
         let blockindex: usize = (x.rem_euclid(32) + (y.rem_euclid(32)) * 32) as usize;
-
-        match chunktoread[blockindex] {
+        
+        match chunktoread.chunk[blockindex] {
             BlockType::Dirt | BlockType::Grass | BlockType::Stone => {}
             _ => continue,
         }
