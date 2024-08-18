@@ -83,7 +83,7 @@ async fn main() {
 		chunk::chunks_in_view_manager(&camera, &mut chunks_in_view, player.planet);
 		
 
-		set_camera_target_to_position_planet(player.dynrect.rect.center(), &player.planet.unwrap(), &mut camera.target, &mut camera_zoom, &mut camera_rotation);
+		set_camera_target_to_position_planet(player.dynrect.rect.point(), &player.planet.unwrap(), &mut camera.target, &mut camera_zoom, &mut camera_rotation);
 		set_camera(&camera);
 		if is_mouse_button_down(MouseButton::Right) {
 			place_block(&camera, &terra, &mut chunks_in_view);
