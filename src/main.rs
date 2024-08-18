@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap, vec};
+use std::{cell::RefCell, collections::HashMap};
 
 
 use chunk::{BlockType, ChunkWithOtherInfo, Planet};
@@ -30,7 +30,7 @@ async fn main() {
 	
 
 	let mut player:collision::MovableEntity = collision::MovableEntity{
-		dynrect: collision::DynRect{rect:Rect{x:1.0, y: 100.0, w: 1.0, h:1.0}, velocity: Vec2::ZERO},
+		dynrect: collision::DynRect{rect:Rect{x:1.0, y: 620.0, w: 1.0, h:1.0}, velocity: Vec2::ZERO},
 		planet: Some(&terra),
 	};
 
@@ -88,6 +88,10 @@ async fn main() {
 		if is_mouse_button_down(MouseButton::Right) {
 			place_block(&camera, &terra, &mut chunks_in_view);
 		}
+		if is_mouse_button_down(MouseButton::Left) {
+			destroy_block(&camera, &terra, &mut chunks_in_view);
+		}
+		
 		//make it so that i only render the world the player is on, The situation in where he can see 2 planets at the same time should never happen
 		//something like this render_world(player.planet), shit also need to add a point in which to see
 		render::render_planet_chunks(&player.planet.unwrap(), &player.dynrect.rect.center(),&chunks_in_view, &texturemanager);
@@ -114,14 +118,14 @@ fn place_block(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<
 
 	let chunk_x: i32 = cemera.x.rem_euclid(planet.size.x as i32 * 32).div_euclid(32);
 	let chunk_y: i32 = cemera.y.div_euclid(32);
-	println!("chunk: {}, mouse: {}", cemera.x, cemera.y);
+	//println!("chunk: {}, mouse: {}", cemera.x, cemera.y);
 	let chunktoread: Option<&mut ChunkWithOtherInfo> = chunks_in_view.get_mut(&IVec2 { x: chunk_x, y: chunk_y });
 
 	let chunktoread: &mut ChunkWithOtherInfo = match chunktoread {
 		Some(chunk) => chunk,
 		None => {
 			eprintln!(
-				"trying to place at something that dont exist {} {} FOR PLACE BLOCK FUNCTION",
+				"trying to place at something that dont exist {} {}",
 				chunk_x, chunk_y
 			);
 			return;
@@ -130,6 +134,38 @@ fn place_block(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<
 	
 	let blockindex: usize = (cemera.x.rem_euclid(32) + (cemera.y.rem_euclid(32)) * 32) as usize;
 	chunktoread.chunk[blockindex] = BlockType::Grass;
+
+}
+
+fn destroy_block(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>){
+	let camamara = camera.screen_to_world(mouse_position().into());
+
+	let mut cemera:Vec2 = inverse_disk_position(camamara, &planet) + 0.5;
+
+	
+
+	if cemera.x <= 0.0 {cemera.x -= 1.0}
+
+	let cemera:IVec2 = IVec2 { x: cemera.x as i32, y: cemera.y as i32 };
+
+	let chunk_x: i32 = cemera.x.rem_euclid(planet.size.x as i32 * 32).div_euclid(32);
+	let chunk_y: i32 = cemera.y.div_euclid(32);
+	//println!("chunk: {}, mouse: {}", cemera.x, cemera.y);
+	let chunktoread: Option<&mut ChunkWithOtherInfo> = chunks_in_view.get_mut(&IVec2 { x: chunk_x, y: chunk_y });
+
+	let chunktoread: &mut ChunkWithOtherInfo = match chunktoread {
+		Some(chunk) => chunk,
+		None => {
+			eprintln!(
+				"trying to destroy at something that dont exist {} {}",
+				chunk_x, chunk_y
+			);
+			return;
+		}
+	};
+	
+	let blockindex: usize = (cemera.x.rem_euclid(32) + (cemera.y.rem_euclid(32)) * 32) as usize;
+	chunktoread.chunk[blockindex] = BlockType::Air;
 
 }
 
@@ -239,7 +275,7 @@ fn movement_input(player: &mut DynRect, delta: &f32, zoom: &mut f32){
 		player.velocity.x -= 100.0 * delta;
 	}
 	if is_key_down(KeyCode::D) {
-		player.velocity.x += 1000.0 * delta;
+		player.velocity.x += 100.0 * delta;
 	}
 	if is_key_down(KeyCode::W) {
 		player.velocity.y += 40.0 * delta;

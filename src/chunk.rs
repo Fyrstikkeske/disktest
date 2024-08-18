@@ -116,11 +116,11 @@ fn generate_chunk(seed:i32, position: IVec2, planet: &Planet) -> [BlockType; CHU
             continue;
         }
 
-        if planet_y == (planet.size.y*32) as i32 -1{
+        if planet_y == (planet.size.y*32) as i32 -33{
             chunk[iter] = BlockType::Grass;
             continue;
         }
-        if planet_y < (planet.size.y*32) as i32 + 31{
+        if planet_y < (planet.size.y*32) as i32 - 33{
             if planet_y as f32> ((sinex+1.)*8.0) + 140.0{
             chunk[iter] = BlockType::Stone;
             continue;
@@ -152,10 +152,11 @@ pub fn writechunkfile(chunk_info: ChunkWithOtherInfo, planet: &Planet){
     }
 
     let file_to_write_to = "Planets/".to_string() + &planet.name.to_string()  + "/x" + &chunk_info.position.x.to_string() + "y" + &chunk_info.position.y.to_string();
-    //println!("{}", planet.name);
+    //println!("{}", file_to_write_to);
+    
     match fs::write(file_to_write_to, chunkstring){
         Ok(_) => {}
-        Err(err) => eprintln!("Error: {}", err),
+        Err(err) => eprintln!("Error unable to save file: {}", err),
     }
 }
 
