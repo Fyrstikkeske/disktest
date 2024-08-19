@@ -30,7 +30,7 @@ async fn main() {
 	
 
 	let mut player:collision::MovableEntity = collision::MovableEntity{
-		dynrect: collision::DynRect{rect:Rect{x:1.0, y: 620.0, w: 1.0, h:1.0}, velocity: Vec2::ZERO},
+		dynrect: collision::DynRect{rect:Rect{x:1.0, y: 620.0, w: 1.75, h:2.6}, velocity: Vec2::ZERO},
 		planet: Some(&terra),
 	};
 
@@ -65,7 +65,7 @@ async fn main() {
 		playermovement(&mut player.dynrect, &delta);
 		
 
-		//*terra.rotation.borrow_mut() += 0.01;
+		*terra.rotation.borrow_mut() += 0.01;
 
 		
 
@@ -83,7 +83,7 @@ async fn main() {
 		chunk::chunks_in_view_manager(&camera, &mut chunks_in_view, player.planet);
 		
 
-		set_camera_target_to_position_planet(player.dynrect.rect.point(), &player.planet.unwrap(), &mut camera.target, &mut camera_zoom, &mut camera_rotation);
+		set_camera_target_to_position_planet(player.dynrect.rect.center(), &player.planet.unwrap(), &mut camera.target, &mut camera_zoom, &mut camera_rotation);
 		set_camera(&camera);
 		if is_mouse_button_down(MouseButton::Right) {
 			place_block(&camera, &terra, &mut chunks_in_view);
@@ -171,8 +171,8 @@ fn destroy_block(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMa
 
 
 fn set_camera_target_to_position_planet(position: Vec2, planet: &Planet, camera_pos: &mut Vec2, camera_zoom: &mut Vec2, camera_rotation: &mut f32){
-	let normalisedplayerx = (position.x *2.0 /(planet.size.x*32) as f32 -1.0) * std::f32::consts::PI;
-	let normalisedplayery = (position.y - (planet.size.y*32) as f32) *(std::f32::consts::TAU/(planet.size.x*32) as f32);
+	let normalisedplayerx = ((position.x - 0.5)  *2.0 /(planet.size.x*32) as f32 -1.0) * std::f32::consts::PI;
+	let normalisedplayery = ((position.y - 0.5) - (planet.size.y*32) as f32) *(std::f32::consts::TAU/(planet.size.x*32) as f32);
 
 	let mut playercomplex = Complex{re:normalisedplayery + 10.0, im:normalisedplayerx + *planet.rotation.borrow()};
 
@@ -211,8 +211,8 @@ fn render_entity(
 	//Def its own function, should be adapted for any entity
 
 	// This should maybe be put in its own function, could alse be used as a base for render_world() unsure
-	let normalisedplayerx = (((entity.dynrect.rect.x *2.0) /(planet.size.x*32) as f32) -1.0) * std::f32::consts::PI;
-	let normalisedplayery = (entity.dynrect.rect.y - (planet.size.y*32) as f32) *(std::f32::consts::TAU/(planet.size.x*32) as f32);
+	let normalisedplayerx = ((((entity.dynrect.rect.center().x - 0.5) *2.0) /(planet.size.x*32) as f32) -1.0) * std::f32::consts::PI;
+	let normalisedplayery = ((entity.dynrect.rect.center().y - 0.5) - (planet.size.y*32) as f32) *(std::f32::consts::TAU/(planet.size.x*32) as f32);
 
 	//this will be maybe a little more difficoult.
 	//world_offset_height must equal a value that makes the entity be in the right y value
@@ -229,16 +229,14 @@ fn render_entity(
 	//println!("{:?}", playercomplex);
 	draw_texture_ex(
 		&texturemanager.imposter,
-		player_node_x - player_size/2.0,
-		player_node_y - player_size/2.0,
+		player_node_x - player_size * (entity.dynrect.rect.w/2.0),
+		player_node_y - player_size * (entity.dynrect.rect.h/2.0),
 		WHITE,
 		DrawTextureParams {
-			dest_size: Some(vec2(player_size,player_size)),
+			dest_size: Some(vec2(player_size * entity.dynrect.rect.w,player_size *entity.dynrect.rect.h)),
 			rotation: player_node_y.atan2(player_node_x)+std::f32::consts::FRAC_PI_2,
 			..Default::default()
 	}
-
-	
 );
     
 }
