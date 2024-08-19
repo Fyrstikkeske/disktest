@@ -1,4 +1,4 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, option};
 
 
 use chunk::{BlockType, ChunkWithOtherInfo, Planet};
@@ -10,11 +10,20 @@ use render::Texturemanager;
 mod render;
 mod collision;
 mod chunk;
-
+mod texturemanager;
 
 //FUCKFUCKFUCK I HAVE TO LEARN Rc FUCK RC(9999X) WEAK PLS I BEG YOU, 
 //OKOKOKOK i can skip many steps hopefully by not referencing the planet directly but a list they are in
 // RefCell IS THE GOAT, THE GOAT
+
+#[derive(Clone, Copy, PartialEq, Eq, Debug)]
+enum Items {
+	DirtBlock,
+	StoneBlock,
+	GrassBlock,
+	PickAxe,
+}
+
 
 
 #[macroquad::main("Torus")]
@@ -35,18 +44,8 @@ async fn main() {
 	};
 
     let compacta_font = load_ttf_font("Assets/compacta.ttf").await.unwrap();
-	let texturemanager = render::Texturemanager{
-		dirt: load_texture("textures/dirt.png").await.unwrap(),
-		imposter: load_texture("textures/imposter.png").await.unwrap(),
-		stone: load_texture("textures/stone.png").await.unwrap(),
-		grass: load_texture("textures/grass.png").await.unwrap(),
-	};
-	//todo, automate
-	texturemanager.stone.set_filter(FilterMode::Nearest);
-	texturemanager.dirt.set_filter(FilterMode::Nearest);
-	texturemanager.grass.set_filter(FilterMode::Nearest);
-	texturemanager.imposter.set_filter(FilterMode::Nearest);
 
+	let texturemanager: render::Texturemanager = texturemanager::texture_manager().await;
 
     let mut zoom:f32 = 48.0;
     let mut camera_rotation:f32 = 0.0;
@@ -55,6 +54,8 @@ async fn main() {
 
 	let mut chunks_in_view:HashMap<IVec2,ChunkWithOtherInfo> = HashMap::new();
 	
+	let mut player_hotbar:[Option<Items>;10] = [None; 10];
+
     loop{
 		
 
