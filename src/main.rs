@@ -1,3 +1,4 @@
+use core::num;
 use std::{cell::RefCell, collections::HashMap, option};
 
 
@@ -5,7 +6,7 @@ use chunk::{BlockType, ChunkWithOtherInfo, Planet};
 use collision::DynRect;
 use macroquad::prelude::*;
 use num_complex::Complex;
-use render::Texturemanager;
+use texturemanager::Texturemanager;
 
 mod render;
 mod collision;
@@ -18,12 +19,17 @@ mod texturemanager;
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Items {
-	DirtBlock,
-	StoneBlock,
-	GrassBlock,
+	DirtBlock{amount: u32},
+	StoneBlock{amount: u32},
+	GrassBlock{amount: u32},
 	PickAxe,
 }
 
+enum PlaceOrBreak{
+	Place,
+	Break,
+	Wtf,
+}
 
 
 #[macroquad::main("Torus")]
@@ -45,7 +51,7 @@ async fn main() {
 
     let compacta_font = load_ttf_font("Assets/compacta.ttf").await.unwrap();
 
-	let texturemanager: render::Texturemanager = texturemanager::texture_manager().await;
+	let texturemanager: texturemanager::Texturemanager = texturemanager::texture_manager().await;
 
     let mut zoom:f32 = 48.0;
     let mut camera_rotation:f32 = 0.0;
@@ -55,16 +61,21 @@ async fn main() {
 	let mut chunks_in_view:HashMap<IVec2,ChunkWithOtherInfo> = HashMap::new();
 	
 	let mut player_hotbar:[Option<Items>;10] = [None; 10];
+	let mut select_hotbar:i32 = 1;
 
+	player_hotbar[0] = Some(Items::PickAxe);
+	player_hotbar[1] = Some(Items::DirtBlock { amount: 1 });
     loop{
-		
-
 		let delta = get_frame_time();
     	clear_background(BLACK);
 		movement_input(&mut player.dynrect, &delta, &mut zoom);
 		collision::dynamic_rectangle_vs_planet_chunks(&delta, &mut player.dynrect, &chunks_in_view, &player.planet.unwrap());
 		playermovement(&mut player.dynrect, &delta);
 		
+		match keyboard_number() {
+			Some(number) => select_hotbar = number as i32,
+			None =>{}
+		};
 
 		*terra.rotation.borrow_mut() += 0.01;
 
@@ -80,19 +91,18 @@ async fn main() {
     	};
 		
 		
+		
 
 		chunk::chunks_in_view_manager(&camera, &mut chunks_in_view, player.planet);
+
 		
 
 		set_camera_target_to_position_planet(player.dynrect.rect.center(), &player.planet.unwrap(), &mut camera.target, &mut camera_zoom, &mut camera_rotation);
 		set_camera(&camera);
-		if is_mouse_button_down(MouseButton::Right) {
-			place_block(&camera, &terra, &mut chunks_in_view);
-		}
-		if is_mouse_button_down(MouseButton::Left) {
-			destroy_block(&camera, &terra, &mut chunks_in_view);
-		}
-		
+
+
+		hotbar_logic(&camera, &player.planet.unwrap(), &mut chunks_in_view, &player_hotbar, &select_hotbar);
+
 		//make it so that i only render the world the player is on, The situation in where he can see 2 planets at the same time should never happen
 		//something like this render_world(player.planet), shit also need to add a point in which to see
 		render::render_planet_chunks(&player.planet.unwrap(), &player.dynrect.rect.center(),&chunks_in_view, &texturemanager);
@@ -100,11 +110,51 @@ async fn main() {
 		render_entity(&player.planet.unwrap(), &player, &texturemanager);
 		
 		set_default_camera();
+		render_hotbar(&player_hotbar, &texturemanager, &select_hotbar);
     	draw_fps(&compacta_font);
 		
     	next_frame().await
     }
 }
+
+fn keyboard_number() -> Option<u8>{
+	if is_key_pressed(KeyCode::Key1) { return Some(0);}
+	if is_key_pressed(KeyCode::Key2) { return Some(1);}
+	if is_key_pressed(KeyCode::Key3) { return Some(2);}
+	if is_key_pressed(KeyCode::Key4) { return Some(3);}
+	if is_key_pressed(KeyCode::Key5) { return Some(4);}
+	if is_key_pressed(KeyCode::Key6) { return Some(5);}
+	if is_key_pressed(KeyCode::Key7) { return Some(6);}
+	if is_key_pressed(KeyCode::Key8) { return Some(7);}
+	if is_key_pressed(KeyCode::Key9) { return Some(8);}
+	if is_key_pressed(KeyCode::Key0) { return Some(9);}
+	return None;
+}
+
+
+
+fn hotbar_logic(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>, hotebaru: &[Option<Items>;10], select_hotbar:&i32){
+	let item = hotebaru[*select_hotbar as usize];
+
+	let item = match item {
+		Some(x) => x,
+		None => return,
+	};
+
+
+
+	if is_mouse_button_down(MouseButton::Left) {
+		match item {
+			Items::DirtBlock { amount } => place_block(&camera, &planet, chunks_in_view),
+			Items::StoneBlock { amount } => todo!(),
+			Items::GrassBlock { amount } => todo!(),
+			Items::PickAxe => destroy_block(&camera, &planet, chunks_in_view),
+			
+		};
+	}
+
+}
+
 
 fn place_block(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>){
 	let camamara = camera.screen_to_world(mouse_position().into());
@@ -289,6 +339,52 @@ fn movement_input(player: &mut DynRect, delta: &f32, zoom: &mut f32){
 		*zoom += 4.0 * delta;
 	}
 }
+
+
+fn render_hotbar(hotebaru: &[Option<Items>;10], texturemanager: &Texturemanager, select_hotbar:&i32){
+	let scale:f32 = 4.0;
+	draw_texture_ex(&texturemanager.hotbar,
+		 screen_width()/2.0 - (texturemanager.hotbar.width() * scale)/2.0,
+		  screen_height() - (texturemanager.hotbar.height() * scale) - (2.0 * scale),
+		   WHITE,
+		    DrawTextureParams{
+				dest_size: Some(vec2(texturemanager.hotbar.width(), texturemanager.hotbar.height()) * scale),
+				..Default::default()});
+
+	for (iter, item) in hotebaru.iter().enumerate(){
+		let item = match item {
+			Some(x) => x,
+			None => continue
+		};
+
+		let item_texture: &Texture2D  = match item {
+			Items::DirtBlock { amount } => &texturemanager.dirt,
+			Items::StoneBlock { amount } => todo!(),
+			Items::GrassBlock { amount } => todo!(),
+			Items::PickAxe =>  &texturemanager.pickaxe,
+		};
+
+		draw_texture_ex(item_texture,
+			(screen_width() - item_texture.width() * scale) / 2.0 + ((iter as f32 - 5.0) * 18.0 + 9.0) * scale,
+			 screen_height() - (item_texture.height() * scale) - (4.0 * scale),
+			  WHITE,
+			   DrawTextureParams{
+				   dest_size: Some(vec2(16.0, 16.0) * scale),
+				   ..Default::default()}
+		);
+	}
+	draw_rectangle_lines(
+		(screen_width() - 22.0 * scale) / 2.0 + ((*select_hotbar as f32 - 5.0) * 18.0 + 9.0) * scale,
+		screen_height() - 19.0 * scale - (4.0 * scale),
+		22.0 * scale,
+		22.0 * scale,
+		2.0 * scale,
+		BLUE,);
+}
+
+
+
+
 
 
 

@@ -14,21 +14,13 @@ use num_complex::Complex;
 use crate::chunk::{BlockType, Planet};
 
 
-pub struct Texturemanager{
-	pub dirt: Texture2D,
-	pub imposter: Texture2D,
-	pub stone: Texture2D,
-	pub grass: Texture2D,
-}
-
-
 
 //fix
 pub fn render_planet_chunks(
 	planet : &Planet, 
 	point : &Vec2,
 	chunks_in_view: &HashMap<IVec2, crate::chunk::ChunkWithOtherInfo>,
-	texturemanager: &Texturemanager,
+	texturemanager: &crate::texturemanager::Texturemanager,
 ){	
 
 	for chunkinfo in chunks_in_view{
