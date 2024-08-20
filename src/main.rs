@@ -65,6 +65,7 @@ async fn main() {
 
 	player_hotbar[0] = Some(Items::PickAxe);
 	player_hotbar[1] = Some(Items::DirtBlock { amount: 1 });
+	player_hotbar[9] = Some(Items::DirtBlock { amount: 1 });
     loop{
 		let delta = get_frame_time();
     	clear_background(BLACK);
@@ -343,9 +344,13 @@ fn movement_input(player: &mut DynRect, delta: &f32, zoom: &mut f32){
 
 fn render_hotbar(hotebaru: &[Option<Items>;10], texturemanager: &Texturemanager, select_hotbar:&i32){
 	let scale:f32 = 4.0;
+
+	let dynamic_x_offset = scale*2.0;
+	let dynamic_y_offset = scale*2.0;
+
 	draw_texture_ex(&texturemanager.hotbar,
-		 screen_width()/2.0 - (texturemanager.hotbar.width() * scale)/2.0,
-		  screen_height() - (texturemanager.hotbar.height() * scale) - (2.0 * scale),
+		dynamic_x_offset,
+		dynamic_y_offset,
 		   WHITE,
 		    DrawTextureParams{
 				dest_size: Some(vec2(texturemanager.hotbar.width(), texturemanager.hotbar.height()) * scale),
@@ -365,8 +370,8 @@ fn render_hotbar(hotebaru: &[Option<Items>;10], texturemanager: &Texturemanager,
 		};
 
 		draw_texture_ex(item_texture,
-			(screen_width() - item_texture.width() * scale) / 2.0 + ((iter as f32 - 5.0) * 18.0 + 9.0) * scale,
-			 screen_height() - (item_texture.height() * scale) - (4.0 * scale),
+			dynamic_x_offset - (item_texture.width() * scale) / 2.0 + ((iter as f32) * 18.0 + 10.0) * scale,
+			dynamic_y_offset + (item_texture.height() * scale * 0.5) - (6.0 * scale),
 			  WHITE,
 			   DrawTextureParams{
 				   dest_size: Some(vec2(16.0, 16.0) * scale),
@@ -374,8 +379,8 @@ fn render_hotbar(hotebaru: &[Option<Items>;10], texturemanager: &Texturemanager,
 		);
 	}
 	draw_rectangle_lines(
-		(screen_width() - 22.0 * scale) / 2.0 + ((*select_hotbar as f32 - 5.0) * 18.0 + 9.0) * scale,
-		screen_height() - 19.0 * scale - (4.0 * scale),
+		dynamic_x_offset - (22.0 * scale) / 2.0 + ((*select_hotbar as f32) * 18.0 + 10.0) * scale,
+		dynamic_y_offset + (10.0 * scale * 0.5) - (6.0 * scale),
 		22.0 * scale,
 		22.0 * scale,
 		2.0 * scale,
