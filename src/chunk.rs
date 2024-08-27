@@ -14,6 +14,7 @@ pub enum BlockType {
 	Marvin,
 }
 
+#[derive(PartialEq)]
 pub struct Planet<'a>{
     pub space_position: RefCell<Vec2>,
 	pub rotation: RefCell<f32>,

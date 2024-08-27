@@ -1,10 +1,9 @@
-use core::num;
-use std::{cell::RefCell, collections::HashMap, option};
+use std::{cell::RefCell, collections::HashMap};
 
 
 use chunk::{BlockType, ChunkWithOtherInfo, Planet};
-use collision::DynRect;
-use macroquad::prelude::*;
+use collision::{DynRect, MovableEntity};
+use macroquad::{prelude::*, texture};
 use num_complex::Complex;
 use texturemanager::Texturemanager;
 
@@ -29,6 +28,11 @@ enum PlaceOrBreak{
 	Place,
 	Break,
 	Wtf,
+}
+
+struct DroppedItem<'a>{
+	entity: collision::MovableEntity<'a>,
+	items: Items,
 }
 
 
@@ -58,10 +62,20 @@ async fn main() {
     let mut camera_zoom = Vec2{x:1./10.0, y:1./10.0};
     let mut camera_target:Vec2 = Vec2 { x: 0.0, y: 0.0 };
 
+	let drop:DroppedItem = DroppedItem{ 
+		entity: collision::MovableEntity{
+			dynrect: collision::DynRect{rect:Rect{x:1.4, y: 625.0, w: 1.7, h:1.7}, velocity: Vec2::ZERO},
+			planet: Some(&terra),
+		},
+		items:Items::PickAxe,
+	};
+
 	let mut chunks_in_view:HashMap<IVec2,ChunkWithOtherInfo> = HashMap::new();
-	
+	let mut dropped_items:Vec<DroppedItem> = vec![drop];
+
 	let mut player_hotbar:[Option<Items>;10] = [None; 10];
 	let mut select_hotbar:i32 = 1;
+
 
 	player_hotbar[0] = Some(Items::PickAxe);
 	player_hotbar[1] = Some(Items::DirtBlock { amount: 1 });
@@ -72,7 +86,9 @@ async fn main() {
 		movement_input(&mut player.dynrect, &delta, &mut zoom);
 		collision::dynamic_rectangle_vs_planet_chunks(&delta, &mut player.dynrect, &chunks_in_view, &player.planet.unwrap());
 		playermovement(&mut player.dynrect, &delta);
-		
+	
+		pick_up_items(&player, &mut player_hotbar, &mut dropped_items);
+
 		match keyboard_number() {
 			Some(number) => select_hotbar = number as i32,
 			None =>{}
@@ -80,7 +96,7 @@ async fn main() {
 
 		*terra.rotation.borrow_mut() += 0.01;
 
-		
+
 
     	camera_zoom *= zoom;
 		camera_target = player.dynrect.rect.center();
@@ -108,7 +124,9 @@ async fn main() {
 		//something like this render_world(player.planet), shit also need to add a point in which to see
 		render::render_planet_chunks(&player.planet.unwrap(), &player.dynrect.rect.center(),&chunks_in_view, &texturemanager);
 		
-		render_entity(&player.planet.unwrap(), &player, &texturemanager);
+
+		render_dropped_items(&dropped_items, &texturemanager);
+		render_entity(&player.planet.unwrap(), &player, &texturemanager.imposter);
 		
 		set_default_camera();
 		render_hotbar(&player_hotbar, &texturemanager, &select_hotbar);
@@ -117,6 +135,46 @@ async fn main() {
     	next_frame().await
     }
 }
+
+fn pick_up_items(player: &collision::MovableEntity, hotebaru: &mut [Option<Items>; 10], dropped_items: &mut Vec<DroppedItem>){
+	let mut items_to_remove: Vec<usize> = Vec::new();
+
+	for (iter, dropped_item) in dropped_items.iter().enumerate(){
+		if dropped_item.entity.planet != player.planet{continue;}
+
+		let distance_between = player.dynrect.rect.point().distance(dropped_item.entity.dynrect.rect.point());
+		if distance_between >= 3.0{continue;}
+		
+		items_to_remove.push(iter);
+		for (iteriter, bar) in hotebaru.iter().enumerate(){
+			if bar.is_some() {continue};
+			hotebaru[iteriter] = Some(dropped_item.items);
+
+			break;
+		}
+	}
+	for &index in items_to_remove.iter().rev() {
+        dropped_items.remove(index);
+    }
+}
+
+
+fn render_dropped_items(dropped_items: &Vec<DroppedItem>, texturemanager: &Texturemanager){
+
+
+	for dropped_item in dropped_items.iter(){
+
+		let texture:&Texture2D = match dropped_item.items {
+			Items::DirtBlock { amount } => {&texturemanager.dirt},
+			Items::GrassBlock { amount } => {&texturemanager.grass},
+			Items::PickAxe => {&texturemanager.pickaxe},
+			Items::StoneBlock { amount } => {&texturemanager.stone},
+			_ => {&texturemanager.imposter},
+		};
+		render_entity(dropped_item.entity.planet.unwrap(), &dropped_item.entity, texture);
+	}
+}
+
 
 fn keyboard_number() -> Option<u8>{
 	if is_key_pressed(KeyCode::Key1) { return Some(0);}
@@ -258,7 +316,7 @@ fn playermovement(player: &mut DynRect, delta: &f32){
 fn render_entity(
 	planet: &Planet,
 	entity: &collision::MovableEntity,
-	texturemanager: &Texturemanager,
+	texture: &Texture2D,
 ){ // 99% will need to be more fixed later on
 	//Def its own function, should be adapted for any entity
 
@@ -280,7 +338,7 @@ fn render_entity(
 	//println!("{}",playercomplex.re);
 	//println!("{:?}", playercomplex);
 	draw_texture_ex(
-		&texturemanager.imposter,
+		texture,
 		player_node_x - player_size * (entity.dynrect.rect.w/2.0),
 		player_node_y - player_size * (entity.dynrect.rect.h/2.0),
 		WHITE,
