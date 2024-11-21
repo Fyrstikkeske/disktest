@@ -7,6 +7,7 @@ pub struct Texturemanager{
 	pub grass: Texture2D,
     pub hotbar: Texture2D,
     pub pickaxe: Texture2D,
+    pub simple_spaceship: Texture2D,
 }
 
 pub async fn texture_manager() -> Texturemanager{
@@ -17,6 +18,7 @@ pub async fn texture_manager() -> Texturemanager{
         grass: load_texture("textures/grass.png").await.unwrap(),
         hotbar: load_texture("textures/hotbar.png").await.unwrap(),
         pickaxe: load_texture("textures/iron_pickaxe.png").await.unwrap(),
+        simple_spaceship: load_texture("textures/rocketship.png").await.unwrap(),
     };
     //todo, automate, NEVER HAHAHAHAHA
     texturemanager.stone.set_filter(FilterMode::Nearest);
@@ -25,5 +27,6 @@ pub async fn texture_manager() -> Texturemanager{
     texturemanager.imposter.set_filter(FilterMode::Nearest);
     texturemanager.hotbar.set_filter(FilterMode::Nearest);
     texturemanager.pickaxe.set_filter(FilterMode::Nearest);
+    texturemanager.simple_spaceship.set_filter(FilterMode::Nearest);
     return texturemanager;
 }

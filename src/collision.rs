@@ -1,4 +1,4 @@
-use std::collections::HashMap;
+use std::{cell::RefCell, collections::HashMap};
 
 use macroquad::math::{Rect, Vec2, IVec2,};
 
@@ -6,7 +6,8 @@ use crate::chunk::{BlockType, ChunkWithOtherInfo, Planet};
 
 pub struct MovableEntity<'a>{
     pub dynrect: DynRect,
-    pub planet: Option<&'a Planet<'a>>
+    pub planet: Option<&'a Planet<'a>>,
+    pub riding: Option<std::rc::Rc<RefCell<crate::SpaceShip<'a>>>>,
 }
 
 struct Ray{
