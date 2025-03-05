@@ -11,7 +11,7 @@ mod render;
 mod collision;
 mod chunk;
 mod texturemanager;
-
+const z:i32 = 7;
 //FUCKFUCKFUCK I HAVE TO LEARN Rc FUCK RC(9999X) WEAK PLS I BEG YOU, 
 //OKOKOKOK i can skip many steps hopefully by not referencing the planet directly but a list they are in
 // RefCell IS THE GOAT, THE GOAT
@@ -63,7 +63,7 @@ async fn main() {
 	let planet_me = Planet{
 		name: "PlanetMe",
 		space_position: RefCell::new(Vec2{x: 000.0, y: 10000.0}),
-		size: UVec2 { x: 1000, y: 20}, 
+		size: UVec2 { x: 10, y: 20},
 		rotation: RefCell::new(0.0),
 	};
 	
@@ -458,7 +458,7 @@ fn set_camera_target_to_position_planet(position: Vec2, planet: &Planet, camera_
 	let normalisedplayerx = ((position.x - 0.5)  *2.0 /(planet.size.x*32) as f32 -1.0) * std::f32::consts::PI;
 	let normalisedplayery = ((position.y - 0.5) - (planet.size.y*32) as f32) *(std::f32::consts::TAU/(planet.size.x*32) as f32);
 
-	let mut playercomplex = Complex{re:normalisedplayery + 10.0, im:normalisedplayerx + *planet.rotation.borrow()};
+	let mut playercomplex = Complex{re:normalisedplayery, im:normalisedplayerx + *planet.rotation.borrow()};
 
 	
 	playercomplex = Complex::exp(playercomplex);
@@ -501,7 +501,7 @@ fn render_entity(
 	//this will be maybe a little more difficoult.
 	//world_offset_height must equal a value that makes the entity be in the right y value
 
-	let mut playercomplex = Complex{re:normalisedplayery + 10.0, im:normalisedplayerx + *planet.rotation.borrow()};
+	let mut playercomplex = Complex{re:normalisedplayery, im:normalisedplayerx + *planet.rotation.borrow()};
 	
 
 	playercomplex = Complex::exp(playercomplex);
@@ -531,7 +531,7 @@ fn inverse_disk_position(vec: Vec2, planet: &Planet) -> Vec2{
 
     let reversed = complex.ln();
 
-    let normalisedy = reversed.re - 10.0;
+    let normalisedy = reversed.re;
     let normalisedx = reversed.im + *planet.rotation.borrow() - std::f32::consts::FRAC_PI_2;
 	
     let position_x = ((normalisedx / std::f32::consts::PI) + 1.0) * (planet.size.x * 32)as f32 / 2.0;

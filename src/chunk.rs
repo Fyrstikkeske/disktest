@@ -169,7 +169,7 @@ pub fn chunks_in_view_manager(camera: &Camera2D, chunks_in_view: &mut HashMap<IV
     let scale = 1.4;
 
 
-   
+
 
     let x:f32 = if camera.target.x > 32. {
         ((camera.target.x - 32.) / 32.) + 0.5
@@ -189,21 +189,21 @@ pub fn chunks_in_view_manager(camera: &Camera2D, chunks_in_view: &mut HashMap<IV
 		h: (((camera.target.y + 32.0)/32.).ceil() - ((camera.target.y - 32.0)/32.).floor()) + scale,
 	};
 
-    
+
 
     draw_rectangle(search_rectangle.x, search_rectangle.y, search_rectangle.w, search_rectangle.h, RED);
 
-    let area:usize =(search_rectangle.w * search_rectangle.h).ceil() as usize; 
+    let area:usize =(search_rectangle.w * search_rectangle.h).ceil() as usize;
 
     let mut chunktoremove = chunks_in_view.clone();
-    
+
     for i in 0..area{
 		let x:i32 = ((i as i32 %search_rectangle.w as i32) + search_rectangle.x as i32).rem_euclid(planet.size.x as i32);
 		let y:i32 = (i as i32 /search_rectangle.w as i32 + search_rectangle.y as i32).rem_euclid(planet.size.y as i32);
-        
+
 
         chunktoremove.remove(&IVec2{x: x, y: y});
-        
+
 
         match chunks_in_view.get(&IVec2{x: x, y: y}){
             Some(_)=> {}
