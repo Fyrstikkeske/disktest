@@ -11,10 +11,19 @@ mod render;
 mod collision;
 mod chunk;
 mod texturemanager;
-const z:i32 = 7;
 //FUCKFUCKFUCK I HAVE TO LEARN Rc FUCK RC(9999X) WEAK PLS I BEG YOU, 
 //OKOKOKOK i can skip many steps hopefully by not referencing the planet directly but a list they are in
 // RefCell IS THE GOAT, THE GOAT
+
+// need this or else i will do something evil.
+struct GameState<'a>{
+	planets: Vec<Planet<'a>>,
+	player: collision::MovableEntity<'a>,
+	camera: Camera2D, 
+	delta: f32,
+	chunks_in_view: HashMap<IVec2,ChunkWithOtherInfo>,
+	texturemanager: texturemanager::Texturemanager,
+}
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 enum Items {
@@ -119,64 +128,48 @@ async fn main() {
 	player_hotbar[1] = Some(Items::DirtBlock { amount: 1 });
 	player_hotbar[9] = Some(Items::DirtBlock { amount: 1 });
 
-
+	let mut gamestate: GameState = GameState{
+		planets: Vec::new(),
+		player: player,
+		camera: Camera2D::default(),
+		delta: 0.0,
+		chunks_in_view: HashMap::new(),
+		texturemanager: texturemanager::texture_manager().await,
+	};
 
 	//THATS WHY HE IS THE GOAT!!! THE GOAT!!!!!!
     loop{
 		let delta = get_frame_time();
+		gamestate.delta = get_frame_time();
     	clear_background(BLACK);
-
-		if player.planet.is_some(){
-		if player.riding.is_none() {
-			movement_input(&mut player.dynrect, &delta, &mut zoom);
-		}else {
-			rocket_input(&mut player.riding.clone().unwrap().borrow_mut().entity.dynrect, &delta, &mut zoom);
-			
-			if player.riding.clone().unwrap().borrow().entity.dynrect.rect.bottom() > player.riding.clone().unwrap().borrow().entity.planet.unwrap().size.y as f32 * 32.0 + 32.0{
-				
-
-				let rot = ((player.dynrect.rect.x - 0.5)  *2.0 /(player.planet.unwrap().size.x*32) as f32 -1.0) * std::f32::consts::PI;
-
-				player.riding.clone().unwrap().borrow_mut().entity.dynrect.rect.x = f32::sin(rot) * (player.planet.unwrap().size.x*32) as f32;
-				player.riding.clone().unwrap().borrow_mut().entity.dynrect.rect.y = f32::sin(rot) * (player.planet.unwrap().size.y*32) as f32;
-
-				player.dynrect.rect.x = player.riding.clone().unwrap().borrow_mut().entity.dynrect.rect.x;
-				player.dynrect.rect.y = player.riding.clone().unwrap().borrow_mut().entity.dynrect.rect.y;
-
-				player.riding.clone().unwrap().borrow_mut().entity.planet = None;
-				player.planet = None;
-
-			}
-		}}
-
-
+		
+		if gamestate.player.planet.is_some(){
+			on_planet(&mut gamestate);
+		}
+		/* 
 		if player.planet.is_none() && player.riding.is_some(){
 			rocket_input_space(&mut player.riding.clone().unwrap().borrow_mut().entity.dynrect, &delta, &mut zoom);
 		};
-
+		
 		if player.riding.is_some() {
 			rocketmovement(&mut player.riding.clone().unwrap().borrow_mut().entity.dynrect, &delta);
-		}
+		}*/
 
-		if player.planet.is_none(){
+		/*if player.planet.is_none(){
 		for stellar_object in stellar_objects.iter(){
 			let distance = player.riding.clone().unwrap().borrow_mut().entity.dynrect.rect.point().distance(*stellar_object.space_position.borrow());
 			if distance+1000.0 > (stellar_object.size.x * 32) as f32{continue;}
 
 			player.planet = Some(stellar_object);
 			player.riding.clone().unwrap().borrow_mut().entity.planet = Some(stellar_object);
-		};};
+		};}; */
 		
 
-		if player.planet.is_some(){
-			collision::dynamic_rectangle_vs_planet_chunks(&delta, &mut player.dynrect, &chunks_in_view, &player.planet.unwrap());
-		}
-
-		playermovement(&mut player.dynrect, &delta);
+		
 		
 
-		pick_up_items(&player, &mut player_hotbar, &mut dropped_items);
-		move_entity_into_spaceship(&space_ships, &mut player);
+		pick_up_items(&gamestate.player, &mut player_hotbar, &mut dropped_items);
+		move_entity_into_spaceship(&space_ships, &mut gamestate.player);
 		match keyboard_number() {
 			Some(number) => select_hotbar = number as i32,
 			None =>{}
@@ -185,7 +178,7 @@ async fn main() {
 		
 		
 
-
+		/* 
     	camera_zoom *= zoom;
 		camera_target = player.dynrect.rect.center();
     	let mut camera = Camera2D {
@@ -193,44 +186,38 @@ async fn main() {
         	target: camera_target,
 			rotation: camera_rotation,
         	..Default::default()
-    	};
+    	};*/
 
 		
 
-		if player.planet.is_some(){
-			chunk::chunks_in_view_manager(&camera, &mut chunks_in_view, player.planet);
+		/*if player.planet.is_some(){
 
-			if player.riding.is_none() {
-				set_camera_target_to_position_planet(player.dynrect.rect.center(), &player.planet.unwrap(), &mut camera.target, &mut camera_zoom, &mut camera_rotation);
-			}else {
-				set_camera_target_to_position_planet(player.riding.clone().unwrap().borrow().entity.dynrect.rect.center(), &player.planet.unwrap(), &mut camera.target, &mut camera_zoom, &mut camera_rotation);
-			}
 		}else {
 			space_camera(player.riding.clone().unwrap().borrow().entity.dynrect.rect.center(),  &mut camera.target, &mut camera_zoom, &mut camera_rotation);
-		}
-		set_camera(&camera);
+		}*/
+		
 
 
 		
 
-		if player.planet.is_some(){
-			hotbar_logic(&camera, &player.planet.unwrap(), &mut chunks_in_view, &player_hotbar, &select_hotbar);
+		/*if player.planet.is_some(){
+			//hotbar_logic(&camera, &player.planet.unwrap(), &mut chunks_in_view, &player_hotbar, &select_hotbar);
 
 			//make it so that i only render the world the player is on, The situation in where he can see 2 planets at the same time should never happen
 			//something like this render_world(player.planet), shit also need to add a point in which to see
-			render::render_planet_chunks(&player.planet.unwrap(), &player.dynrect.rect.center(),&chunks_in_view, &texturemanager);
-		}
+			
+		}*/
 
 
 
 		render_spaceships(&space_ships, &texturemanager);
 		render_dropped_items(&dropped_items, &texturemanager);
 
-		if player.planet.is_some(){
-			render_entity(&player.planet.unwrap(), &player, &texturemanager.imposter);
+		/*if player.planet.is_some(){
+			
 		} else {
 			draw_texture(&texturemanager.imposter, player.dynrect.rect.x, player.dynrect.rect.y, WHITE)
-		}
+		}*/
 
 
 		set_default_camera();
@@ -243,6 +230,66 @@ async fn main() {
     }
 }
 
+fn on_planet(gamestate:&mut GameState){
+	if gamestate.player.riding.is_none() {
+		movement_input(&mut gamestate.player.dynrect, &gamestate.delta);
+	}
+	collision::dynamic_rectangle_vs_planet_chunks(&gamestate.delta, &mut gamestate.player.dynrect, &gamestate.chunks_in_view, &gamestate.player.planet.unwrap());
+	playermovement(&mut gamestate.player.dynrect, &gamestate.delta);
+	
+	
+	let rect:Rect = Rect{
+		x: gamestate.player.dynrect.rect.center().x,
+    	y: gamestate.player.dynrect.rect.center().y,
+    	w: 2.0,
+    	h: 2.0,
+	};
+	chunk::chunks_in_view_manager(&rect, &mut gamestate.chunks_in_view, gamestate.player.planet);
+	
+	set_camera_target_to_position_planet(
+		gamestate.player.dynrect.rect.center(), 
+		&gamestate.player.planet.unwrap(), 
+		&mut gamestate.camera.target, 
+		&mut gamestate.camera.zoom, 
+		&mut gamestate.camera.rotation);
+	
+	gamestate.camera.zoom *= 10.;
+	set_camera(&gamestate.camera);
+
+
+	
+	render::render_planet_chunks(&gamestate.player.planet.unwrap(), &gamestate.player.dynrect.rect.center(),&gamestate.chunks_in_view, &gamestate.texturemanager);
+
+	render_entity(&gamestate.player.planet.unwrap(), &gamestate.player, &gamestate.texturemanager.imposter);
+	
+	
+	/*else {
+		set_camera_target_to_position_planet(player.riding.clone().unwrap().borrow().entity.dynrect.rect.center(), &player.planet.unwrap(), &mut camera.target, &mut camera_zoom, &mut camera_rotation);
+	}*/
+
+	/* else {
+		rocket_input(&mut player.riding.clone().unwrap().borrow_mut().entity.dynrect, &delta, &mut zoom);
+		
+		if player.riding.clone().unwrap().borrow().entity.dynrect.rect.bottom() > player.riding.clone().unwrap().borrow().entity.planet.unwrap().size.y as f32 * 32.0 + 32.0{
+			
+
+			let rot = ((player.dynrect.rect.x - 0.5)  *2.0 /(player.planet.unwrap().size.x*32) as f32 -1.0) * std::f32::consts::PI;
+
+			player.riding.clone().unwrap().borrow_mut().entity.dynrect.rect.x = f32::sin(rot) * (player.planet.unwrap().size.x*32) as f32;
+			player.riding.clone().unwrap().borrow_mut().entity.dynrect.rect.y = f32::sin(rot) * (player.planet.unwrap().size.y*32) as f32;
+
+			player.dynrect.rect.x = player.riding.clone().unwrap().borrow_mut().entity.dynrect.rect.x;
+			player.dynrect.rect.y = player.riding.clone().unwrap().borrow_mut().entity.dynrect.rect.y;
+
+			player.riding.clone().unwrap().borrow_mut().entity.planet = None;
+			player.planet = None;
+
+		}
+	}
+	*/
+
+
+}
 
 fn space_camera(position: Vec2, camera_pos: &mut Vec2, camera_zoom: &mut Vec2, camera_rotation: &mut f32){
 
@@ -585,7 +632,7 @@ fn rocket_input(rocket: &mut DynRect, delta: &f32, zoom: &mut f32){
 		*zoom += 4.0 * delta;
 	}
 }
-fn movement_input(player: &mut DynRect, delta: &f32, zoom: &mut f32){
+fn movement_input(player: &mut DynRect, delta: &f32){
 	if is_key_down(KeyCode::A) {
 		player.velocity.x -= 100.0 * delta;
 	}
@@ -597,12 +644,6 @@ fn movement_input(player: &mut DynRect, delta: &f32, zoom: &mut f32){
 	}
 	if is_key_down(KeyCode::S) {
 		player.velocity.y -= 40.0 * delta;
-	}
-	if is_key_down(KeyCode::KpAdd) {
-		*zoom -= 4.0 * delta;
-	}
-	if is_key_down(KeyCode::KpSubtract) {
-		*zoom += 4.0 * delta;
 	}
 }
 
@@ -651,48 +692,3 @@ fn render_hotbar(hotebaru: &[Option<Items>;10], texturemanager: &Texturemanager,
 		2.0 * scale,
 		BLUE,);
 }
-
-
-
-
-
-
-
-/*	TODO: Put this in its own function, and separate. this is way to big to have in the main function
-
-		if is_key_down(KeyCode::Right) {
-            world_offset_rotation -= std::f32::consts::TAU/hyperboria.x_size as f32;
-        }
-
-		if is_key_down(KeyCode::Left) {
-            world_offset_rotation += std::f32::consts::TAU/hyperboria.x_size as f32;
-        }
-
-		if is_key_down(KeyCode::Down) {
-            world_offset_height += 100.*(std::f32::consts::TAU/hyperboria.x_size as f32);
-        }
-
-		if is_key_down(KeyCode::Up) {
-            world_offset_height -= 100.*(std::f32::consts::TAU/hyperboria.x_size as f32);
-        }
-
-		if is_key_down(KeyCode::A) {
-            player.velocity.x -= 40.0 * delta;
-        }
-
-		if is_key_down(KeyCode::D) {
-            player.velocity.x += 40.0 * delta;
-        }
-
-		if is_key_down(KeyCode::W) {
-			world_offset_global_y -= 1000.;
-        }
-
-		if is_key_down(KeyCode::S) {
-			world_offset_global_y += 1000.;
-        }
-
-		if is_key_pressed(KeyCode::Space) {
-			player.velocity.y += 10.00;
-        }
- */

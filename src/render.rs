@@ -1,7 +1,7 @@
 use std::collections::HashMap;
 
 use macroquad::{
-	color::{Color, WHITE}, math::{vec2, UVec2, Vec2, IVec2}, shapes::draw_rectangle, texture::{draw_texture_ex, 
+	color::{Color, WHITE}, math::{vec2, IVec2, UVec2, Vec2}, shapes::{draw_rectangle, draw_rectangle_ex, DrawRectangleParams}, texture::{draw_texture_ex, 
 		DrawTextureParams,
 		Texture2D,
 		}
@@ -57,7 +57,6 @@ pub fn render_planet_chunks(
 
 			let size = f32::sqrt(f32::powf(transformed_x,2.) + f32::powf(transformed_y,2.)) *((std::f32::consts::TAU)/(planet.size.x*32) as f32);
 
-
 			draw_texture_ex(
 				texture_to_use,
 				transformed_x - size/2.,
@@ -69,6 +68,21 @@ pub fn render_planet_chunks(
 					..Default::default()
 				},
 			);
+
+			if false {continue;}
+			if chunk_x == 0 || chunk_x == 31 || chunk_y == 0 || chunk_y == 31{
+				draw_rectangle_ex(
+					transformed_x - size/2.,
+					transformed_y - size/2.,
+					size,
+					size,
+					DrawRectangleParams {
+						color: WHITE,
+						//rotation: transformed_y.atan2(transformed_x) +std::f32::consts::PI/2.,
+						..Default::default()
+					},
+				);
+			}
         }
     }
 }

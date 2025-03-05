@@ -161,37 +161,27 @@ pub fn writechunkfile(chunk_info: ChunkWithOtherInfo, planet: &Planet){
     }
 }
 
-pub fn chunks_in_view_manager(camera: &Camera2D, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>, planet:Option<&Planet>){
+pub fn chunks_in_view_manager(display: &Rect, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>, planet:Option<&Planet>){
     let planet = match planet {
 		Some(theplanet) => theplanet,
 		None => {eprintln!("WHY TF ARE YOU TRYING TO CHUNK SOMETHING THATS NOT A PLANET"); return;}
 	};
-    let scale = 1.4;
 
+    
 
-
-
-    let x:f32 = if camera.target.x > 32. {
-        ((camera.target.x - 32.) / 32.) + 0.5
-    } else {
-        ((camera.target.x - 32.) / 32.) - 0.5
-    };
-    let y:f32 = if camera.target.y > 0. {
-        ((camera.target.y - 32.) / 32.) + 0.5
-    } else {
-        ((camera.target.y - 32.) / 32.) - 0.5
-    };
+    let x:f32 = ((display.x - 32.) / 32.) + (1.5 - display.w/2.0);
+    let y:f32 = ((display.y - 32.) / 32.) + (1.5 - display.h/2.0);
 
     let search_rectangle = Rect{
-		x: x.floor() - scale/2.0,
-		y: y.floor() - scale/2.0,
-		w: (((camera.target.x + 32.0)/32.).ceil() - ((camera.target.x - 32.0)/32.).floor()) + scale,
-		h: (((camera.target.y + 32.0)/32.).ceil() - ((camera.target.y - 32.0)/32.).floor()) + scale,
+		x: x.floor() ,
+		y: y.floor() ,
+		w: display.w,
+		h: display.h,
 	};
 
+    println!("{}",display.x);
 
-
-    draw_rectangle(search_rectangle.x, search_rectangle.y, search_rectangle.w, search_rectangle.h, RED);
+    //draw_rectangle(search_rectangle.x, search_rectangle.y, search_rectangle.w, search_rectangle.h, RED);
 
     let area:usize =(search_rectangle.w * search_rectangle.h).ceil() as usize;
 
