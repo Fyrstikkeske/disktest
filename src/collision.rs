@@ -6,7 +6,7 @@ use crate::chunk::{BlockType, ChunkWithOtherInfo, Planet};
 
 pub struct MovableEntity<'a>{
     pub dynrect: DynRect,
-    pub planet: Option<&'a Planet<'a>>,
+    pub planet: Option<std::rc::Rc<RefCell<Planet<'a>>>>,
     pub riding: Option<std::rc::Rc<RefCell<crate::SpaceShip<'a>>>>,
 }
 

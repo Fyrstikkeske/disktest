@@ -18,7 +18,6 @@ use crate::chunk::{BlockType, Planet};
 //fix
 pub fn render_planet_chunks(
 	planet : &Planet,
-	point : &Vec2,
 	chunks_in_view: &HashMap<IVec2, crate::chunk::ChunkWithOtherInfo>,
 	texturemanager: &crate::texturemanager::Texturemanager,
 ){
@@ -52,10 +51,10 @@ pub fn render_planet_chunks(
 			//my brain hurts
 			let pre_complex_block_position = Complex{re:normalised_block_position.y, im:normalised_block_position.x + *planet.rotation.borrow()};
 			let complex_block_position = Complex::exp(pre_complex_block_position);
-			let transformed_x = complex_block_position.re;
-			let transformed_y = complex_block_position.im;
+			let transformed_x = complex_block_position.re + planet.space_position.borrow().x;
+			let transformed_y = complex_block_position.im + planet.space_position.borrow().y;
 
-			let size = f32::sqrt(f32::powf(transformed_x,2.) + f32::powf(transformed_y,2.)) *((std::f32::consts::TAU)/(planet.size.x*32) as f32);
+			let size = f32::sqrt(f32::powf(complex_block_position.re,2.) + f32::powf(complex_block_position.im,2.)) *((std::f32::consts::TAU)/(planet.size.x*32) as f32);
 
 			draw_texture_ex(
 				texture_to_use,
@@ -64,7 +63,7 @@ pub fn render_planet_chunks(
 				WHITE,
 				DrawTextureParams {
 					dest_size: Some(vec2(size,size)),
-					rotation: transformed_y.atan2(transformed_x) +std::f32::consts::PI/2.,
+					rotation: complex_block_position.im.atan2(complex_block_position.re) +std::f32::consts::PI/2.,
 					..Default::default()
 				},
 			);

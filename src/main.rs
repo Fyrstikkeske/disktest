@@ -17,7 +17,7 @@ mod texturemanager;
 
 // need this or else i will do something evil.
 struct GameState<'a>{
-	planets: Vec<Planet<'a>>,
+	planets: Vec<Rc<RefCell<Planet<'a>>>>,
 	player: collision::MovableEntity<'a>,
 	camera: Camera2D, 
 	delta: f32,
@@ -62,12 +62,12 @@ struct SpaceShip<'a>{
 async fn main() {
 	println!("Hello, universe!");
 
-	let terra = Planet{
+	let terra:Rc<RefCell<Planet>> = Rc::new(RefCell::new(Planet{
 		name: "Terra",
 		space_position: RefCell::new(Vec2{x: 0.0, y: 0.0}),
 		size: UVec2 { x: 20, y: 20}, 
 		rotation: RefCell::new(0.0),
-	};
+	}));
 
 	let planet_me = Planet{
 		name: "PlanetMe",
@@ -79,14 +79,16 @@ async fn main() {
 
 	let mut stellar_objects: Vec<Planet> = Vec::new();
 
-	stellar_objects.push(terra);
+	
 	stellar_objects.push(planet_me);
 	
 	let mut player:collision::MovableEntity = collision::MovableEntity{
 		dynrect: collision::DynRect{rect:Rect{x:1.0, y: 620.0, w: 1.75, h:2.6}, velocity: Vec2::ZERO},
-		planet: Some(&stellar_objects[0]),
+		planet: None,
 		riding: None,
 	};
+
+	
 
     let compacta_font = load_ttf_font("Assets/compacta.ttf").await.unwrap();
 
@@ -100,7 +102,7 @@ async fn main() {
 	let drop:DroppedItem = DroppedItem{
 		entity: collision::MovableEntity{
 			dynrect: collision::DynRect{rect:Rect{x:1.4, y: 625.0, w: 1.7, h:1.7}, velocity: Vec2::ZERO},
-			planet: Some(&stellar_objects[0]),
+			planet: None,
 			riding: None,
 		},
 		items:Items::PickAxe,
@@ -109,7 +111,7 @@ async fn main() {
 	let spaceship:Rc<RefCell<SpaceShip>> =  Rc::new(RefCell::new(SpaceShip{
 		entity: collision::MovableEntity{
 			dynrect: collision::DynRect{rect:Rect{x:-10.0, y: 620.0, w: 5.75, h:10.3}, velocity: Vec2::ZERO},
-			planet: Some(&stellar_objects[0]),
+			planet: None,
 			riding: None,
 		},
 	fuel: 100,
@@ -137,15 +139,33 @@ async fn main() {
 		texturemanager: texturemanager::texture_manager().await,
 	};
 
+	gamestate.planets.push(terra);
+	gamestate.player.planet = Some(gamestate.planets[0].clone());
+
 	//THATS WHY HE IS THE GOAT!!! THE GOAT!!!!!!
     loop{
-		let delta = get_frame_time();
 		gamestate.delta = get_frame_time();
     	clear_background(BLACK);
+
+		//*gamestate.player.planet.unwrap().rotation.borrow_mut() += 0.001;
+		
+		if is_key_pressed(KeyCode::Enter) {
+			gamestate.player.dynrect.rect.move_to(vector_from_planet_to_space_coords(&gamestate.player.planet.clone().unwrap().borrow(), &gamestate.player.dynrect.rect.center()) - gamestate.player.dynrect.rect.size()/2.0);
+			gamestate.player.planet = None;
+			//gamestate.camera.rotation += 90.0;
+		}
 		
 		if gamestate.player.planet.is_some(){
 			on_planet(&mut gamestate);
 		}
+
+		if gamestate.player.planet.is_none(){
+			off_planet(&mut gamestate)
+		}
+
+
+		
+
 		/* 
 		if player.planet.is_none() && player.riding.is_some(){
 			rocket_input_space(&mut player.riding.clone().unwrap().borrow_mut().entity.dynrect, &delta, &mut zoom);
@@ -168,8 +188,8 @@ async fn main() {
 		
 		
 
-		pick_up_items(&gamestate.player, &mut player_hotbar, &mut dropped_items);
-		move_entity_into_spaceship(&space_ships, &mut gamestate.player);
+		//pick_up_items(&gamestate.player, &mut player_hotbar, &mut dropped_items);
+		//move_entity_into_spaceship(&space_ships, &mut gamestate.player);
 		match keyboard_number() {
 			Some(number) => select_hotbar = number as i32,
 			None =>{}
@@ -224,43 +244,69 @@ async fn main() {
 
 
 		render_hotbar(&player_hotbar, &texturemanager, &select_hotbar);
-    	draw_fps(&compacta_font);
-		
+    	draw_text_debug(&compacta_font, &gamestate);
+		//gamestate.camera = Camera2D::default();
     	next_frame().await
     }
 }
+fn off_planet(gamestate:&mut GameState){
+	*gamestate.planets[0].borrow_mut().rotation.borrow_mut() += 0.001;
+	gamestate.planets[0].borrow_mut().space_position.borrow_mut().x -= 0.001;
+	let rect:Rect = Rect{
+		x: 20.0,
+    	y: 630.0,
+    	w: 20.0,
+    	h: 1.0,
+	};
+	chunk::chunks_in_view_manager(&rect, &mut gamestate.chunks_in_view, &gamestate.planets[0].borrow());
+
+	space_camera(gamestate.player.dynrect.rect.center(), &mut gamestate.camera.target, &mut gamestate.camera.zoom, &mut gamestate.camera.rotation);
+	set_camera(&gamestate.camera);
+
+
+	
+	render::render_planet_chunks(&gamestate.planets[0].borrow(),&gamestate.chunks_in_view, &gamestate.texturemanager);
+
+	render_entity_space(&gamestate.player, &gamestate.texturemanager.imposter);
+}
 
 fn on_planet(gamestate:&mut GameState){
+	*gamestate.player.planet.clone().unwrap().borrow_mut().rotation.borrow_mut() += 0.001;
+	gamestate.planets[0].borrow_mut().space_position.borrow_mut().x -= 0.001;
 	if gamestate.player.riding.is_none() {
 		movement_input(&mut gamestate.player.dynrect, &gamestate.delta);
 	}
-	collision::dynamic_rectangle_vs_planet_chunks(&gamestate.delta, &mut gamestate.player.dynrect, &gamestate.chunks_in_view, &gamestate.player.planet.unwrap());
+	collision::dynamic_rectangle_vs_planet_chunks(
+		&gamestate.delta, 
+		&mut gamestate.player.dynrect,
+		&gamestate.chunks_in_view,
+		&gamestate.player.planet.clone().unwrap().borrow());
 	playermovement(&mut gamestate.player.dynrect, &gamestate.delta);
 	
 	
 	let rect:Rect = Rect{
 		x: gamestate.player.dynrect.rect.center().x,
     	y: gamestate.player.dynrect.rect.center().y,
-    	w: 2.0,
+    	w: 4.0,
     	h: 2.0,
 	};
-	chunk::chunks_in_view_manager(&rect, &mut gamestate.chunks_in_view, gamestate.player.planet);
+	chunk::chunks_in_view_manager(&rect, &mut gamestate.chunks_in_view, &gamestate.player.planet.clone().unwrap().borrow());
 	
 	set_camera_target_to_position_planet(
 		gamestate.player.dynrect.rect.center(), 
-		&gamestate.player.planet.unwrap(), 
+		&gamestate.player.planet.clone().unwrap().borrow(), 
 		&mut gamestate.camera.target, 
 		&mut gamestate.camera.zoom, 
 		&mut gamestate.camera.rotation);
 	
-	gamestate.camera.zoom *= 10.;
+	gamestate.camera.zoom *= 48.;
 	set_camera(&gamestate.camera);
 
 
 	
-	render::render_planet_chunks(&gamestate.player.planet.unwrap(), &gamestate.player.dynrect.rect.center(),&gamestate.chunks_in_view, &gamestate.texturemanager);
+	render::render_planet_chunks(&gamestate.player.planet.clone().unwrap().borrow(),&gamestate.chunks_in_view, &gamestate.texturemanager);
 
-	render_entity(&gamestate.player.planet.unwrap(), &gamestate.player, &gamestate.texturemanager.imposter);
+	render_entity(&gamestate.player.planet.clone().unwrap().borrow(), &gamestate.player, &gamestate.texturemanager.imposter);
 	
 	
 	/*else {
@@ -291,18 +337,52 @@ fn on_planet(gamestate:&mut GameState){
 
 }
 
+fn render_entity_space(
+	entity: &collision::MovableEntity,
+	texture: &Texture2D,
+){
+	draw_texture_ex(
+		texture,
+		entity.dynrect.rect.center().x,
+		entity.dynrect.rect.center().y,
+		WHITE,
+		DrawTextureParams {
+			dest_size: Some(entity.dynrect.rect.size()*0.01),
+			..Default::default()
+	}
+);
+}
+
+fn vector_from_planet_to_space_coords(
+	planet: &Planet,
+	vector: &Vec2,
+)-> Vec2{
+	// ITS HERE
+	let normalisedentityx = ((((vector.x - 0.5) *2.0) /(planet.size.x*32) as f32) -1.0) * std::f32::consts::PI;
+	let normalisedentityy = ((vector.y - 0.5) - (planet.size.y*32) as f32) *(std::f32::consts::TAU/(planet.size.x*32) as f32);
+
+	let mut playercomplex = Complex{re:normalisedentityy, im:normalisedentityx + *planet.rotation.borrow()};
+	
+
+	playercomplex = Complex::exp(playercomplex);
+	let player_node_x = playercomplex.re + planet.space_position.borrow().x;
+	let player_node_y = playercomplex.im + planet.space_position.borrow().y;
+	Vec2{x: player_node_x, y: player_node_y}
+}
+
+
 fn space_camera(position: Vec2, camera_pos: &mut Vec2, camera_zoom: &mut Vec2, camera_rotation: &mut f32){
 
 	camera_pos.x = position.x;
 	camera_pos.y = position.y;
 
-	let zoom = 30.0;
+	let zoom = 0.001;
 
 	camera_zoom.y = (1.0/screen_height())/zoom;
 	camera_zoom.x = (1.0/screen_width())/zoom;
 
 	
-	*camera_rotation = (camera_pos.x.atan2(camera_pos.y) * (360./std::f32::consts::TAU)) + 180.;
+	//*camera_rotation = (camera_pos.x.atan2(camera_pos.y) * (360./std::f32::consts::TAU)) + 180.;
 }
 
 
@@ -349,7 +429,7 @@ fn render_spaceships(spaceships: &Vec<Rc<RefCell<SpaceShip>>>, texturemanager: &
 		if spaceship.borrow().entity.planet.is_none(){
 			draw_texture(texture, spaceship.borrow().entity.dynrect.rect.center().x, spaceship.borrow().entity.dynrect.rect.center().y, WHITE); continue;};
 
-		render_entity(spaceship.borrow().entity.planet.unwrap(), &spaceship.borrow().entity, texture);
+		render_entity(&spaceship.borrow().entity.planet.clone().unwrap().borrow(), &spaceship.borrow().entity, texture);
 	}
 }
 
@@ -357,7 +437,7 @@ fn render_spaceships(spaceships: &Vec<Rc<RefCell<SpaceShip>>>, texturemanager: &
 
 
 
-fn pick_up_items(player: &collision::MovableEntity, hotebaru: &mut [Option<Items>; 10], dropped_items: &mut Vec<DroppedItem>){
+fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Option<Items>; 10], dropped_items: &mut Vec<DroppedItem<'a>>){
 	let mut items_to_remove: Vec<usize> = Vec::new();
 
 	for (iter, dropped_item) in dropped_items.iter().enumerate(){
@@ -381,10 +461,10 @@ fn pick_up_items(player: &collision::MovableEntity, hotebaru: &mut [Option<Items
 
 
 fn render_dropped_items(dropped_items: &Vec<DroppedItem>, texturemanager: &Texturemanager){
-
+	
 
 	for dropped_item in dropped_items.iter(){
-
+		if dropped_item.entity.planet.clone().is_none(){continue;}
 		let texture:&Texture2D = match dropped_item.items {
 			Items::DirtBlock { amount } => {&texturemanager.dirt},
 			Items::GrassBlock { amount } => {&texturemanager.grass},
@@ -392,7 +472,7 @@ fn render_dropped_items(dropped_items: &Vec<DroppedItem>, texturemanager: &Textu
 			Items::StoneBlock { amount } => {&texturemanager.stone},
 			_ => {&texturemanager.imposter},
 		};
-		render_entity(dropped_item.entity.planet.unwrap(), &dropped_item.entity, texture);
+		render_entity(&dropped_item.entity.planet.clone().unwrap().borrow(), &dropped_item.entity, texture);
 	}
 }
 
@@ -510,8 +590,8 @@ fn set_camera_target_to_position_planet(position: Vec2, planet: &Planet, camera_
 	
 	playercomplex = Complex::exp(playercomplex);
 
-	camera_pos.x = playercomplex.re;
-	camera_pos.y = playercomplex.im;
+	camera_pos.x = playercomplex.re + planet.space_position.borrow().x;
+	camera_pos.y = playercomplex.im + planet.space_position.borrow().y;
 
 	let zoom = f32::sqrt(f32::powf(playercomplex.re,2.)+f32::powf(playercomplex.im,2.)) *(std::f32::consts::TAU/(planet.size.x*32) as f32);
 
@@ -519,7 +599,7 @@ fn set_camera_target_to_position_planet(position: Vec2, planet: &Planet, camera_
 	camera_zoom.x = (1.0/screen_width())/zoom;
 
 	
-	*camera_rotation = (camera_pos.x.atan2(camera_pos.y) * (360./std::f32::consts::TAU)) + 180.;
+	*camera_rotation = (playercomplex.re.atan2(playercomplex.im) * (360./std::f32::consts::TAU)) + 180.;
 }
 
 
@@ -530,7 +610,7 @@ fn playermovement(player: &mut DynRect, delta: &f32){
 	//player.velocity.y -= 9.81* delta;
 	if player.velocity.x.abs() < 4.{player.velocity.x = player.velocity.x * 0.89;};
 }
-	
+
 
 
 
@@ -552,8 +632,8 @@ fn render_entity(
 	
 
 	playercomplex = Complex::exp(playercomplex);
-	let player_node_x = playercomplex.re;
-	let player_node_y = playercomplex.im;
+	let player_node_x = playercomplex.re + planet.space_position.borrow().x;
+	let player_node_y = playercomplex.im + planet.space_position.borrow().y;
 	let player_size = f32::sqrt(f32::powf(playercomplex.re,2.)+f32::powf(playercomplex.im,2.)) *(std::f32::consts::TAU/(planet.size.x*32) as f32);
 	//let player_size = 10.0;
 	//println!("{}",playercomplex.re);
@@ -565,7 +645,7 @@ fn render_entity(
 		WHITE,
 		DrawTextureParams {
 			dest_size: Some(vec2(player_size * entity.dynrect.rect.w,player_size *entity.dynrect.rect.h)),
-			rotation: player_node_y.atan2(player_node_x)+std::f32::consts::FRAC_PI_2,
+			rotation: playercomplex.im.atan2(playercomplex.re)+std::f32::consts::FRAC_PI_2,
 			..Default::default()
 	}
 );
@@ -586,7 +666,7 @@ fn inverse_disk_position(vec: Vec2, planet: &Planet) -> Vec2{
 	Vec2{x: position_x * -1.0, y: position_y}
 }
 
-fn draw_fps(compacta_font:&Font){
+fn draw_text_debug(compacta_font:&Font, gamestate:&GameState){
     draw_text_ex(
         format!("{}", get_fps()).as_str(),
         20.0,
@@ -596,7 +676,34 @@ fn draw_fps(compacta_font:&Font){
             font: Some(compacta_font),
             ..Default::default()}
         );
-
+		
+		draw_text_ex(
+			format!("planet center x/y: {}", &gamestate.planets[0].borrow().space_position.borrow()).as_str(),
+			20.0,
+			60.0,
+			TextParams {
+				font_size: 30,
+				font: Some(compacta_font),
+				..Default::default()}
+		);
+		draw_text_ex(
+			format!("player x/y: {}", &gamestate.player.dynrect.rect.point()).as_str(),
+			20.0,
+			90.0,
+			TextParams {
+				font_size: 30,
+				font: Some(compacta_font),
+				..Default::default()}
+		);
+		draw_text_ex(
+			format!("rotation: {}", &gamestate.camera.rotation).as_str(),
+			20.0,
+			120.0,
+			TextParams {
+				font_size: 30,
+				font: Some(compacta_font),
+				..Default::default()}
+		);
 }
 fn rocket_input_space(rocket: &mut DynRect, delta: &f32, zoom: &mut f32){
 	if is_key_down(KeyCode::A) {

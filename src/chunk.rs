@@ -161,11 +161,11 @@ pub fn writechunkfile(chunk_info: ChunkWithOtherInfo, planet: &Planet){
     }
 }
 
-pub fn chunks_in_view_manager(display: &Rect, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>, planet:Option<&Planet>){
-    let planet = match planet {
+pub fn chunks_in_view_manager(display: &Rect, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>, planet:&Planet){
+    /*let planet = match planet {
 		Some(theplanet) => theplanet,
 		None => {eprintln!("WHY TF ARE YOU TRYING TO CHUNK SOMETHING THATS NOT A PLANET"); return;}
-	};
+	}; */
 
     
 
@@ -179,7 +179,7 @@ pub fn chunks_in_view_manager(display: &Rect, chunks_in_view: &mut HashMap<IVec2
 		h: display.h,
 	};
 
-    println!("{}",display.x);
+    //println!("{}",display.y);
 
     //draw_rectangle(search_rectangle.x, search_rectangle.y, search_rectangle.w, search_rectangle.h, RED);
 
