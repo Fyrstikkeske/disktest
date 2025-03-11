@@ -14,7 +14,7 @@ pub enum BlockType {
 	Marvin,
 }
 
-#[derive(PartialEq)]
+#[derive(PartialEq, Debug)]
 pub struct Planet<'a>{
     pub space_position: RefCell<Vec2>,
 	pub rotation: RefCell<f32>,
@@ -33,7 +33,7 @@ pub fn readchunkfile(position: IVec2, planet: &Planet) -> ChunkWithOtherInfo{
 
     let mut chunk:[BlockType; CHUNKSIZE] = [BlockType::Air; CHUNKSIZE];
 
-    let file_to_read_from = "Planets".to_string() + "/" + &planet.name.to_string()  + "/x" + &position.x.to_string() + "y" + &position.y.to_string();
+    let file_to_read_from = "Planets".to_string() + "/" + planet.name  + "/x" + &position.x.to_string() + "y" + &position.y.to_string();
 
     let chunkstring = match fs::read_to_string(file_to_read_from){
         Ok(chunkstring) => chunkstring,
@@ -65,7 +65,7 @@ pub fn readchunkfile(position: IVec2, planet: &Planet) -> ChunkWithOtherInfo{
         chunk[iteration] = blocksenum;
     }
 
-    return ChunkWithOtherInfo{position: position, chunk: chunk};
+    ChunkWithOtherInfo{position: position, chunk: chunk}
 }
 
 fn generate_chunk(seed:i32, position: IVec2, planet: &Planet) -> [BlockType; CHUNKSIZE] {
@@ -74,7 +74,7 @@ fn generate_chunk(seed:i32, position: IVec2, planet: &Planet) -> [BlockType; CHU
 
     let randomnumber = rand::gen_range(0, 100);
 
-    for iter in 0..1024{
+    for (iter, blocktype) in chunk.iter_mut().enumerate(){
         let local_x:i32 = iter as i32%32;
         let local_y:i32 = iter as i32/32;
         let planet_x:i32 = local_x + position.x*32;
@@ -83,49 +83,47 @@ fn generate_chunk(seed:i32, position: IVec2, planet: &Planet) -> [BlockType; CHU
         let sinex:f32 = f32::sin((planet_x as f32/5.0) + randomnumber as f32/100.);
 
         if planet_y == 0{
-            chunk[iter] = BlockType::Stone;
+            *blocktype = BlockType::Stone;
             continue;
         }
 
         if planet_y == 100{
-            chunk[iter] = BlockType::Air;
+            *blocktype = BlockType::Air;
             continue;
         }
 
         if planet_y == 99{
-            chunk[iter] = BlockType::Air;
+            *blocktype = BlockType::Air;
             continue;
         }
         if planet_x == (planet.size.x * 32) as i32 -33 {
-            chunk[iter] = BlockType::Stone;
+            *blocktype = BlockType::Stone;
             continue;
         }
         if planet_x == (planet.size.x * 32) as i32 -32 {
-            chunk[iter] = BlockType::Stone;
+            *blocktype = BlockType::Stone;
             continue;
         }
         if planet_x == (planet.size.x * 32) as i32 -31 {
-            chunk[iter] = BlockType::Air;
+            *blocktype = BlockType::Air;
             continue;
         }
         if planet_x == 10{
-            chunk[iter] = BlockType::Air;
+            *blocktype = BlockType::Air;
             continue;
         }
         if planet_x == 11{
-            chunk[iter] = BlockType::Air;
+            *blocktype = BlockType::Air;
             continue;
         }
 
         if planet_y == (planet.size.y*32) as i32 -33{
-            chunk[iter] = BlockType::Grass;
+            *blocktype = BlockType::Grass;
             continue;
         }
-        if planet_y < (planet.size.y*32) as i32 - 33{
-            if planet_y as f32> ((sinex+1.)*8.0) + 140.0{
-            chunk[iter] = BlockType::Stone;
+        if planet_y < (planet.size.y*32) as i32 - 33 && planet_y as f32 > ((sinex+1.)*8.0) + 140.0 {
+            *blocktype = BlockType::Stone;
             continue;
-            }
         }
 
     }
@@ -152,7 +150,7 @@ pub fn writechunkfile(chunk_info: ChunkWithOtherInfo, planet: &Planet){
         chunkstring.push_str(blockstring)
     }
 
-    let file_to_write_to = "Planets/".to_string() + &planet.name.to_string()  + "/x" + &chunk_info.position.x.to_string() + "y" + &chunk_info.position.y.to_string();
+    let file_to_write_to = "Planets/".to_string() + planet.name  + "/x" + &chunk_info.position.x.to_string() + "y" + &chunk_info.position.y.to_string();
     //println!("{}", file_to_write_to);
     
     match fs::write(file_to_write_to, chunkstring){
@@ -206,5 +204,12 @@ pub fn chunks_in_view_manager(display: &Rect, chunks_in_view: &mut HashMap<IVec2
     for (key, chunk) in chunktoremove{
         writechunkfile(ChunkWithOtherInfo{position: key, chunk:chunk.chunk}, planet);
         chunks_in_view.remove(&key);
+    }
+}
+
+pub fn save_planet_from_manager(chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>, planet:&Planet){
+    
+    for (key, chunk) in chunks_in_view{
+        writechunkfile(ChunkWithOtherInfo{position: *key, chunk:chunk.chunk}, planet);
     }
 }

@@ -3,18 +3,19 @@ use std::{cell::RefCell, collections::HashMap};
 use macroquad::math::{Rect, Vec2, IVec2,};
 
 use crate::chunk::{BlockType, ChunkWithOtherInfo, Planet};
-
+#[derive(Debug)]
 pub struct MovableEntity<'a>{
     pub dynrect: DynRect,
     pub planet: Option<std::rc::Rc<RefCell<Planet<'a>>>>,
     pub riding: Option<std::rc::Rc<RefCell<crate::SpaceShip<'a>>>>,
+    pub rot: f32,
 }
 
 struct Ray{
     origin:Vec2,
     direction:Vec2
 }
-
+#[derive(Debug)]
 pub struct DynRect{
 	pub rect:Rect,
     pub velocity:Vec2,
@@ -96,11 +97,10 @@ fn dynamic_rect_vs_rect(
         &expanded_target
     );
 
-    if ray_rect_info.hit{
-        if ray_rect_info.t_hit_near <= 1.0 && ray_rect_info.t_hit_near >= 0.0{ 
-            ray_rect_info.hit = true;
-            return ray_rect_info;
-    }}
+    if ray_rect_info.hit && ray_rect_info.t_hit_near <= 1.0 && ray_rect_info.t_hit_near >= 0.0 { 
+        ray_rect_info.hit = true;
+        return ray_rect_info;
+    }
 
     ray_rect_info.hit = false;
     ray_rect_info
@@ -113,7 +113,8 @@ pub fn dynamic_rectangle_vs_planet_chunks(
     dynrect: &mut DynRect,
     chunks_in_view: &HashMap<IVec2,ChunkWithOtherInfo>,
     planet: &crate::chunk::Planet,
-) {
+) -> bool{
+    let mut collisiondetected = false;
     let future_dynrect_position_x: f32 = dynrect.rect.x + (dynrect.velocity.x * *delta);
     let future_dynrect_position_y: f32 = dynrect.rect.y + (dynrect.velocity.y * *delta);
 
@@ -181,15 +182,17 @@ pub fn dynamic_rectangle_vs_planet_chunks(
         let y = round.2.y;
 
         let element = Rect {
-            x: x as f32,
-            y: y as f32,
+            x: x,
+            y: y,
             w: 1.0,
             h: 1.0,
         };
-        let ray_rect_info = dynamic_rect_vs_rect(&element, dynrect, &delta);
+        let ray_rect_info = dynamic_rect_vs_rect(&element, dynrect, delta);
         if ray_rect_info.hit {
             dynrect.velocity += ray_rect_info.contact_normal * dynrect.velocity.abs()
                 * (1.0 - ray_rect_info.t_hit_near);
+                collisiondetected = true;
         }
     }
+    collisiondetected
 }

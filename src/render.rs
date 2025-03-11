@@ -9,7 +9,7 @@ use macroquad::{
 
 
 
-use num_complex::Complex;
+
 
 use crate::{chunk::{BlockType, Planet}, full_info_planet_to_space_coords};
 
@@ -56,7 +56,7 @@ pub fn render_planet_chunks(
 				},
 			);
 
-			if false {continue;}
+			if true {continue;}
 			if chunk_x == 0 || chunk_x == 31 || chunk_y == 0 || chunk_y == 31{
 				draw_rectangle_ex(
 					transformed.0.x - transformed.1/2.,
