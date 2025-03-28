@@ -3,7 +3,6 @@ use std::collections::HashMap;
 use macroquad::{
 	color::{Color, WHITE}, math::{vec2, IVec2, UVec2, Vec2}, shapes::{draw_rectangle, draw_rectangle_ex, DrawRectangleParams}, texture::{draw_texture_ex, 
 		DrawTextureParams,
-		Texture2D,
 		}
 	};
 
@@ -75,7 +74,7 @@ pub fn render_planet_chunks(
 }
 
 
-pub fn draw_world_color_only(chunks_in_view: &HashMap<UVec2, [BlockType; 1024]>){
+pub fn _draw_world_color_only(chunks_in_view: &HashMap<UVec2, [BlockType; 1024]>){
     for chunkinfo in chunks_in_view{
         for index in 0..1024{
             let blockcolor:Color = match chunkinfo.1[index] {

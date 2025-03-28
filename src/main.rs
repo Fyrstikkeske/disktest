@@ -4,7 +4,7 @@ use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 use chunk::{BlockType, ChunkWithOtherInfo, Planet};
 use collision::{DynRect, MovableEntity};
-use macroquad::{prelude::*, texture};
+use macroquad::prelude::*;
 use num_complex::Complex;
 use texturemanager::Texturemanager;
 
@@ -27,6 +27,7 @@ struct GameState<'a>{
 	player_hotbar:[Option<Items>;10],
 	select_hotbar: i32,
 	spaceships: Vec<Rc<RefCell<SpaceShip<'a>>>>,
+	dropped_items: Vec<DroppedItem<'a>>,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -102,7 +103,7 @@ async fn main() {
 
 	let drop:DroppedItem = DroppedItem{
 		entity: collision::MovableEntity{
-			dynrect: collision::DynRect{rect:Rect{x:1.4, y: 625.0, w: 1.7, h:1.7}, velocity: Vec2::ZERO},
+			dynrect: collision::DynRect{rect:Rect{x:10.4, y: 605.0, w: 1.7, h:1.7}, velocity: Vec2::ZERO},
 			planet: None,
 			riding: None,
 			rot: 0.0 
@@ -145,6 +146,7 @@ async fn main() {
 		player_hotbar: player_hotbar,
 		select_hotbar: 1,
 		spaceships: Vec::new(),
+		dropped_items: dropped_items,
 	};
 
 	gamestate.planets.push(terra);
@@ -152,6 +154,7 @@ async fn main() {
 	gamestate.player.planet = Some(gamestate.planets[0].clone());
 	gamestate.spaceships.push(sigma_spaceship);
 	gamestate.spaceships[0].borrow_mut().entity.planet = Some(gamestate.planets[0].clone());
+	gamestate.dropped_items[0].entity.planet = Some(gamestate.planets[0].clone());
 
 	//THATS WHY HE IS THE GOAT!!! THE GOAT!!!!!!
     loop{
@@ -169,33 +172,8 @@ async fn main() {
 		
 
 		spaceship_system(&mut gamestate);
-
 		
-
-		/* 
-		if player.planet.is_none() && player.riding.is_some(){
-			rocket_input_space(&mut player.riding.clone().unwrap().borrow_mut().entity.dynrect, &delta, &mut zoom);
-		};
-		
-		if player.riding.is_some() {
-			rocketmovement(&mut player.riding.clone().unwrap().borrow_mut().entity.dynrect, &delta);
-		}*/
-
-		/*if player.planet.is_none(){
-		for stellar_object in stellar_objects.iter(){
-			let distance = player.riding.clone().unwrap().borrow_mut().entity.dynrect.rect.point().distance(*stellar_object.space_position.borrow());
-			if distance+1000.0 > (stellar_object.size.x * 32) as f32{continue;}
-
-			player.planet = Some(stellar_object);
-			player.riding.clone().unwrap().borrow_mut().entity.planet = Some(stellar_object);
-		};}; */
-		
-
-		
-		
-
-		//pick_up_items(&gamestate.player, &mut player_hotbar, &mut dropped_items);
-		//move_entity_into_spaceship(&space_ships, &mut gamestate.player);
+		pick_up_items(&gamestate.player, &mut player_hotbar, &mut gamestate.dropped_items);
 		if let Some(number) = keyboard_number() {
 			gamestate.select_hotbar = number as i32 
 		}
@@ -204,8 +182,9 @@ async fn main() {
 
 
 
-		//render_spaceships(&space_ships, &texturemanager);
-		render_dropped_items(&dropped_items, &texturemanager);
+		render_dropped_items(&gamestate.dropped_items, &texturemanager);
+
+		
 
 
 		set_default_camera();
@@ -221,6 +200,9 @@ async fn main() {
     	next_frame().await
     }
 }
+
+
+
 fn spaceship_system(gamestate:&mut GameState){
 	if gamestate.player.planet.is_some() && is_key_pressed(KeyCode::Enter){
 		if gamestate.player.riding.is_some() {
@@ -250,7 +232,12 @@ fn spaceship_system(gamestate:&mut GameState){
 				let new_x = full_info_planet_to_space_coords(&planet.borrow(), &center).0 - spaceship.entity.dynrect.rect.size() / 2.0;
 				spaceship.entity.dynrect.rect.move_to(new_x);				
 				spaceship.entity.planet = None;
-				spaceship.entity.rot += *planet.borrow().rotation.borrow() - f32::consts::FRAC_PI_2;
+
+				//spaceship.entity.rot = *planet.borrow().rotation.borrow() + spaceship.entity.dynrect.rect.x/(planet.borrow().size.x as f32 * 32.0) * f32::consts::PI;
+
+				let newrot = planet.borrow().rotation.borrow().cos();
+				spaceship.entity.dynrect.velocity.x = (spaceship.entity.dynrect.velocity.x * newrot.cos()) - spaceship.entity.dynrect.velocity.y * newrot.sin();
+				spaceship.entity.dynrect.velocity.y = (spaceship.entity.dynrect.velocity.x * newrot.sin()) + spaceship.entity.dynrect.velocity.y * newrot.cos();
 				return;
 			}
 
@@ -284,7 +271,7 @@ fn spaceship_system(gamestate:&mut GameState){
 
 fn planets_system(gamestate:&mut GameState){
 	for planet in &gamestate.planets {
-		*planet.borrow_mut().rotation.borrow_mut() += 0.01;
+		//*planet.borrow_mut().rotation.borrow_mut() += 0.01;
 
         let planet = planet.borrow_mut();
         let mut rotation_mut = planet.rotation.borrow_mut();
@@ -363,9 +350,6 @@ fn on_planet(gamestate:&mut GameState){
 	}
 
 
-	
-	
-
 	let rect:Rect = Rect{
 		x: gamestate.player.dynrect.rect.center().x,
     	y: gamestate.player.dynrect.rect.center().y,
@@ -386,7 +370,7 @@ fn on_planet(gamestate:&mut GameState){
 	gamestate.camera.zoom *= 48.;
 	set_camera(&gamestate.camera);
 
-	hotbar_logic(&gamestate.camera, &gamestate.player.planet.clone().unwrap().borrow(), &mut gamestate.chunks_in_view, &gamestate.player_hotbar, &gamestate.select_hotbar);
+	hotbar_logic(gamestate);
 
 	
 	render::render_planet_chunks(&gamestate.player.planet.clone().unwrap().borrow(),&gamestate.chunks_in_view, &gamestate.texturemanager);
@@ -555,8 +539,17 @@ fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Opti
 	for (iter, dropped_item) in dropped_items.iter().enumerate(){
 		if dropped_item.entity.planet != player.planet{continue;}
 
-		let distance_between = player.dynrect.rect.center().distance(dropped_item.entity.dynrect.rect.center());
-		if distance_between >= 3.0{continue;}
+		//let distance_between = player.dynrect.rect.center().distance(dropped_item.entity.dynrect.rect.center());
+		println!("{}, {}", player.dynrect.rect.center(), dropped_item.entity.dynrect.rect.center());
+		
+		if !(player.dynrect.rect.overlaps(&dropped_item.entity.dynrect.rect) ||
+		player.dynrect.rect.overlaps(&dropped_item.entity.dynrect.rect.offset(Vec2{x: dropped_item.entity.planet.clone().unwrap().borrow().size.x as f32 * 32.0, y: 0.0})) ||
+		player.dynrect.rect.overlaps(&dropped_item.entity.dynrect.rect.offset(Vec2{x: dropped_item.entity.planet.clone().unwrap().borrow().size.x as f32 * -32.0, y: 0.0})) ||
+		player.dynrect.rect.overlaps(&dropped_item.entity.dynrect.rect.offset(Vec2{x: dropped_item.entity.planet.clone().unwrap().borrow().size.x as f32 * -64.0, y: 0.0})) ||
+		player.dynrect.rect.overlaps(&dropped_item.entity.dynrect.rect.offset(Vec2{x: dropped_item.entity.planet.clone().unwrap().borrow().size.x as f32 * 64.0, y: 0.0}))) 
+		{continue;}
+
+		
 		
 		items_to_remove.push(iter);
 		for (iteriter, bar) in hotebaru.iter().enumerate(){
@@ -605,8 +598,15 @@ fn keyboard_number() -> Option<u8>{
 
 
 
-fn hotbar_logic(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>, hotebaru: &[Option<Items>;10], select_hotbar:&i32){
-	let item = hotebaru[*select_hotbar as usize];
+fn hotbar_logic(gamestate: &mut GameState){
+	let binding = gamestate.player.planet.clone().unwrap();
+ 	let planet = &binding.borrow();
+	let camera = &gamestate.camera;
+	let chunks_in_view = &mut gamestate.chunks_in_view;
+	
+
+
+	let item = gamestate.player_hotbar[gamestate.select_hotbar as usize];
 
 	let item = match item {
 		Some(x) => x,
@@ -620,8 +620,7 @@ fn hotbar_logic(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap
 			Items::DirtBlock { amount: _} => place_block(BlockType::Dirt, camera, planet, chunks_in_view),
 			Items::StoneBlock { amount: _ } => place_block(BlockType::Stone, camera, planet, chunks_in_view),
 			Items::GrassBlock { amount: _ } => place_block(BlockType::Grass, camera, planet, chunks_in_view),
-			Items::PickAxe => destroy_block(camera, planet, chunks_in_view),
-			
+			Items::PickAxe => destroy_block(camera, gamestate.player.planet.clone().unwrap(), chunks_in_view, &mut gamestate.dropped_items),
 		};
 	}
 
@@ -660,18 +659,18 @@ fn place_block(block_type: BlockType,camera: &Camera2D, planet: &Planet, chunks_
 
 }
 
-fn destroy_block(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>){
+fn destroy_block<'a>(camera: &Camera2D, planet: Rc<RefCell<Planet<'a>>>, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>, dropped_items: &mut Vec<DroppedItem<'a>>){
 	let camamara = camera.screen_to_world(mouse_position().into());
 
-	let mut cemera:Vec2 = inverse_disk_position(camamara, planet);
+	let mut cemera:Vec2 = inverse_disk_position(camamara, &planet.borrow());
 
-	
+
 
 	if cemera.x <= 0.0 {cemera.x -= 1.0}
 
 	let cemera:IVec2 = IVec2 { x: cemera.x as i32, y: cemera.y as i32 };
 
-	let chunk_x: i32 = cemera.x.rem_euclid(planet.size.x as i32 * 32).div_euclid(32);
+	let chunk_x: i32 = cemera.x.rem_euclid(planet.borrow().size.x as i32 * 32).div_euclid(32);
 	let chunk_y: i32 = cemera.y.div_euclid(32);
 	//println!("chunk: {}, mouse: {}", cemera.x, cemera.y);
 	let chunktoread: Option<&mut ChunkWithOtherInfo> = chunks_in_view.get_mut(&IVec2 { x: chunk_x, y: chunk_y });
@@ -688,6 +687,33 @@ fn destroy_block(camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMa
 	};
 	
 	let blockindex: usize = (cemera.x.rem_euclid(32) + (cemera.y.rem_euclid(32)) * 32) as usize;
+
+	let item = match chunktoread.chunk[blockindex] {
+		BlockType::Stone => Items::StoneBlock { amount: 1 },
+		BlockType::Dirt => Items::DirtBlock { amount: 1 },
+		BlockType::Grass => Items::GrassBlock { amount: 1 },
+		_ => return,
+	};
+	
+	dropped_items.push(DroppedItem {
+		entity: MovableEntity {
+			dynrect: DynRect {
+				rect: Rect {
+					x: cemera.x as f32,
+					y: cemera.y as f32,
+					w: 0.5,
+					h: 0.5,
+				},
+				velocity: Vec2 { x: 0.0, y: 0.0 },
+			},
+			planet: Some(planet),
+			riding: None,
+			rot: 0.0,
+		},
+		items: item,
+	});
+	
+
 	chunktoread.chunk[blockindex] = BlockType::Air;
 
 }
@@ -839,20 +865,7 @@ fn name_plate(compacta_font:&Font, gamestate:&GameState){
             ..Default::default()}
         );
 }
-fn rocket_input_space(rocket: &mut DynRect, delta: &f32, zoom: &mut f32){
-	if is_key_down(KeyCode::A) {
-		rocket.velocity.x -= 5.0 * delta;
-	}
-	if is_key_down(KeyCode::D) {
-		rocket.velocity.x += 5.0 * delta;
-	}
-	if is_key_down(KeyCode::W) {
-		rocket.velocity.y += 5.0 * delta;
-	}
-	if is_key_down(KeyCode::S) {
-		rocket.velocity.y -= 5.0 * delta;
-	}
-}
+
 fn rocket_input(rocket: &mut MovableEntity, delta: &f32){
 
 
