@@ -163,6 +163,8 @@ async fn main() {
 
 		
 		planets_system(&mut gamestate);
+		normalise_stuff_on_planets(&mut gamestate);
+
 		
 		if gamestate.player.planet.is_some(){
 			on_planet(&mut gamestate);
@@ -173,18 +175,12 @@ async fn main() {
 
 		spaceship_system(&mut gamestate);
 		
-		pick_up_items(&gamestate.player, &mut player_hotbar, &mut gamestate.dropped_items);
+		pick_up_items(&gamestate.player, &mut player_hotbar, &mut gamestate.dropped_items, &gamestate.delta);
 		if let Some(number) = keyboard_number() {
 			gamestate.select_hotbar = number as i32 
 		}
 
-	
-
-
-
 		render_dropped_items(&gamestate.dropped_items, &texturemanager);
-
-		
 
 
 		set_default_camera();
@@ -201,7 +197,9 @@ async fn main() {
     }
 }
 
-
+fn normalise_stuff_on_planets(gamestate: &mut GameState){
+	gamestate.player.dynrect.rect.x = gamestate.player.dynrect.rect.x.rem_euclid((gamestate.player.planet.clone().unwrap().borrow().size.x * 32) as f32);
+}
 
 fn spaceship_system(gamestate:&mut GameState){
 	if gamestate.player.planet.is_some() && is_key_pressed(KeyCode::Enter){
@@ -335,8 +333,6 @@ fn on_planet(gamestate:&mut GameState){
 		return;
 	}
 	
-	gamestate.player.dynrect.rect.x = gamestate.player.dynrect.rect.x.rem_euclid((gamestate.player.planet.clone().unwrap().borrow().size.x * 32) as f32);
-
 	if let Some(spaceship) = &gamestate.player.riding{
 		gamestate.player.dynrect.rect.move_to(spaceship.borrow().entity.dynrect.rect.center() - gamestate.player.dynrect.rect.size()/2.0);
 	}else {
@@ -533,7 +529,7 @@ fn render_spaceships(spaceships: &Vec<Rc<RefCell<SpaceShip>>>, texturemanager: &
 
 
 
-fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Option<Items>; 10], dropped_items: &mut Vec<DroppedItem<'a>>){
+fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Option<Items>; 10], dropped_items: &mut Vec<DroppedItem<'a>>, delta: &f32){
 	let mut items_to_remove: Vec<usize> = Vec::new();
 
 	for (iter, dropped_item) in dropped_items.iter().enumerate(){
@@ -542,14 +538,15 @@ fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Opti
 		//let distance_between = player.dynrect.rect.center().distance(dropped_item.entity.dynrect.rect.center());
 		println!("{}, {}", player.dynrect.rect.center(), dropped_item.entity.dynrect.rect.center());
 		
-		if !(player.dynrect.rect.overlaps(&dropped_item.entity.dynrect.rect) ||
-		player.dynrect.rect.overlaps(&dropped_item.entity.dynrect.rect.offset(Vec2{x: dropped_item.entity.planet.clone().unwrap().borrow().size.x as f32 * 32.0, y: 0.0})) ||
-		player.dynrect.rect.overlaps(&dropped_item.entity.dynrect.rect.offset(Vec2{x: dropped_item.entity.planet.clone().unwrap().borrow().size.x as f32 * -32.0, y: 0.0})) ||
-		player.dynrect.rect.overlaps(&dropped_item.entity.dynrect.rect.offset(Vec2{x: dropped_item.entity.planet.clone().unwrap().borrow().size.x as f32 * -64.0, y: 0.0})) ||
-		player.dynrect.rect.overlaps(&dropped_item.entity.dynrect.rect.offset(Vec2{x: dropped_item.entity.planet.clone().unwrap().borrow().size.x as f32 * 64.0, y: 0.0}))) 
-		{continue;}
 
-		
+		let ray_rect_info = crate::collision::looping_dynamic_rect_vs_rect(
+			&dropped_item.entity.dynrect.rect, 
+			&player.dynrect,
+			*delta, 
+		(player.planet.clone().unwrap().borrow_mut().size.x * 32) as f32, 
+			100000.0);
+		if !(ray_rect_info.hit)
+		{continue;}
 		
 		items_to_remove.push(iter);
 		for (iteriter, bar) in hotebaru.iter().enumerate(){

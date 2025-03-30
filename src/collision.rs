@@ -1,6 +1,6 @@
-use std::{cell::RefCell, collections::HashMap};
+use std::{cell::RefCell, collections::HashMap, mem::swap};
 
-use macroquad::math::{Rect, Vec2, IVec2,};
+use macroquad::math::{vec2, IVec2, Rect, Vec2};
 
 use crate::chunk::{BlockType, ChunkWithOtherInfo, Planet};
 #[derive(Debug)]
@@ -21,89 +21,92 @@ pub struct DynRect{
     pub velocity:Vec2,
 }
 
-struct RayRectInfo{
-    hit: bool,
+#[derive(Default,)]
+pub struct RayRectInfo{
+    pub hit: bool,
     contact_point:Vec2,
     contact_normal:Vec2,
     t_hit_near:f32,
 }
 
-fn ray_vs_rect(
-    ray:&Ray,
-    rect: &Rect,
-        ) -> RayRectInfo{
-    let mut ray_rect_info = RayRectInfo{
-        hit: false,
-        contact_point: Vec2{x:0.0,y: 0.0}, 
-        contact_normal: Vec2{x:0.0,y: 0.0}, 
-        t_hit_near: 0.0};
-
+fn ray_vs_rect(ray: &Ray, rect: &Rect) -> RayRectInfo {
     let mut t_near = (rect.point() - ray.origin) / ray.direction;
     let mut t_far = (rect.point() + rect.size() - ray.origin) / ray.direction;
-    
-    if t_near.x > t_far.x { std::mem::swap( &mut t_near.x, &mut t_far.x)};
-    if t_near.y > t_far.y { std::mem::swap( &mut t_near.y, &mut t_far.y)};
-    
-    if t_far.y.is_nan() || t_far.x.is_nan() {return ray_rect_info};
-    if t_near.y.is_nan() || t_near.x.is_nan() {return ray_rect_info};
 
-    if t_near.x > t_far.y || t_near.y > t_far.x {return ray_rect_info};
+    if t_near.x > t_far.x { swap(&mut t_near.x, &mut t_far.x); }
+    if t_near.y > t_far.y { swap(&mut t_near.y, &mut t_far.y); }
 
-    ray_rect_info.t_hit_near = f32::max(t_near.x, t_near.y);
-    let t_hit_far = f32::min(t_far.x, t_far.y);
+    if t_far.x.is_nan() || t_far.y.is_nan() || t_near.x.is_nan() || t_near.y.is_nan() { return RayRectInfo::default(); }
+    if t_near.x > t_far.y || t_near.y > t_far.x { return RayRectInfo::default(); }
 
-    if t_hit_far <0.0 {return ray_rect_info};
+    let t_hit_near = t_near.x.max(t_near.y);
+    if t_hit_near < 0.0 || t_far.x.min(t_far.y) < 0.0 { return RayRectInfo::default(); }
 
-    ray_rect_info.contact_point = ray.origin + ray_rect_info.t_hit_near * ray.direction;
+    let contact_normal = if t_near.x > t_near.y {
+        if ray.direction.x.is_sign_negative() { vec2(1.0, 0.0) } else { vec2(-1.0, 0.0) }
+    } else {
+        if ray.direction.y.is_sign_negative() { vec2(0.0, 1.0) } else { vec2(0.0, -1.0) }
+    };
 
-    if t_near.x > t_near.y{
-        if ray.direction.x < 0.0{
-            ray_rect_info.contact_normal = Vec2 {x: 1.0,y: 0.0}
-        }else{
-            ray_rect_info.contact_normal = Vec2 {x: -1.0,y: 0.0}
-        }
-    }else if t_near.x < t_near.y {
-        if ray.direction.y < 0.0{
-            ray_rect_info.contact_normal = Vec2 {x: 0.0,y: 1.0}
-        }else{
-            ray_rect_info.contact_normal = Vec2 {x: 0.0,y: -1.0}
-        }
+    RayRectInfo {
+        hit: true,
+        contact_point: ray.origin + t_hit_near * ray.direction,
+        contact_normal,
+        t_hit_near,
     }
-    ray_rect_info.hit = true;
-    ray_rect_info
 }
 
+pub fn looping_dynamic_rect_vs_rect(rect: &Rect, dynrect: &DynRect, delta: f32, width: f32, height: f32) -> RayRectInfo {
+    let x_offsets = [0.0, width, -width];
+    let y_offsets = [0.0, height, -height];
+    
+    let mut earliest_hit = RayRectInfo::default();
 
+    for &x_offset in &x_offsets {
+        for &y_offset in &y_offsets {
+            let shifted_rect = Rect {
+                x: rect.x + x_offset,
+                y: rect.y + y_offset,
+                w: rect.w,
+                h: rect.h,
+            };
 
-fn dynamic_rect_vs_rect(
-    rect:&Rect,
-    dynrect: &DynRect,
-    delta: &f32,
-        ) -> RayRectInfo
-{
-    let mut ray_rect_info = RayRectInfo{hit: false, contact_point: Vec2{x:0.0,y: 0.0}, contact_normal: Vec2{x:0.0,y: 0.0}, t_hit_near: 0.0};
+            let info = dynamic_rect_vs_rect(&shifted_rect, dynrect, delta);
+            if info.hit && (earliest_hit.hit == false || info.t_hit_near < earliest_hit.t_hit_near) {
+                earliest_hit = info;
+                break;
+            }
+        }
+    }
+    earliest_hit
+}
 
-    if dynrect.velocity.x == 0.0 && dynrect.velocity.y == 0.0{
-        return ray_rect_info;
+pub(crate) 
+fn dynamic_rect_vs_rect(rect: &Rect, dynrect: &DynRect, delta: f32) -> RayRectInfo {
+    if dynrect.velocity == Vec2::ZERO {
+        return RayRectInfo::default();
     }
 
-    
-    let exp_rect_pos = rect.point() - dynrect.rect.size() / 2.;
-    let exp_rect_size = rect.size() + dynrect.rect.size();
-    let expanded_target:Rect = Rect { x: exp_rect_pos.x, y: exp_rect_pos.y, w: exp_rect_size.x, h: exp_rect_size.y };
 
-    ray_rect_info = ray_vs_rect(
-        &Ray{ origin: dynrect.rect.point() + dynrect.rect.size()/2.0, direction: dynrect.velocity * *delta},
-        &expanded_target
+    let expanded_rect = Rect::new(
+        rect.x - dynrect.rect.w / 2.0,
+        rect.y - dynrect.rect.h / 2.0,
+        rect.w + dynrect.rect.w,
+        rect.h + dynrect.rect.h,
     );
 
-    if ray_rect_info.hit && ray_rect_info.t_hit_near <= 1.0 && ray_rect_info.t_hit_near >= 0.0 { 
-        ray_rect_info.hit = true;
-        return ray_rect_info;
+    let ray = Ray {
+        origin: dynrect.rect.point() + dynrect.rect.size() / 2.0,
+        direction: dynrect.velocity * delta,
+    };
+    
+    let mut rayrectinfo = ray_vs_rect(&ray, &expanded_rect);
+    if rayrectinfo.hit && (rayrectinfo.t_hit_near >= 0.0 && rayrectinfo.t_hit_near <= 1.0) {
+        return rayrectinfo; 
     }
 
-    ray_rect_info.hit = false;
-    ray_rect_info
+    rayrectinfo.hit = false;
+    rayrectinfo
 }
 
 
@@ -168,7 +171,7 @@ pub fn dynamic_rectangle_vs_planet_chunks(
             w: 1.0,
             h: 1.0,
         };
-        let ray_rect_info = dynamic_rect_vs_rect(&block, dynrect, delta);
+        let ray_rect_info = dynamic_rect_vs_rect(&block, dynrect, *delta);
 
         if ray_rect_info.hit {
             collisions_with.push((blockindex, ray_rect_info.t_hit_near, block));
@@ -187,7 +190,7 @@ pub fn dynamic_rectangle_vs_planet_chunks(
             w: 1.0,
             h: 1.0,
         };
-        let ray_rect_info = dynamic_rect_vs_rect(&element, dynrect, delta);
+        let ray_rect_info = dynamic_rect_vs_rect(&element, dynrect, *delta);
         if ray_rect_info.hit {
             dynrect.velocity += ray_rect_info.contact_normal * dynrect.velocity.abs()
                 * (1.0 - ray_rect_info.t_hit_near);
