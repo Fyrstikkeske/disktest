@@ -156,7 +156,7 @@ async fn main() {
 
 		
 		planets_system(&mut gamestate);
-		normalise_stuff_on_planets(&mut gamestate);
+		
 
 		
 
@@ -174,8 +174,7 @@ async fn main() {
 
 		spaceship_system(&mut gamestate);
 		
-		pick_up_items(&gamestate.player, &mut gamestate.player_inventory, &mut gamestate.dropped_items);
-		pick_up_items(&gamestate.player, &mut player_hotbar, &mut gamestate.dropped_items, &gamestate.delta);
+		pick_up_items(&gamestate.player, &mut gamestate.player_inventory, &mut gamestate.dropped_items, &gamestate.delta);
 		if let Some(number) = keyboard_number() {
 			gamestate.select_hotbar = number as i32 
 		}
@@ -497,7 +496,7 @@ fn render_spaceships(spaceships: &Vec<Rc<RefCell<SpaceShip>>>, texturemanager: &
 
 
 
-fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Option<Items>; 10*5], dropped_items: &mut Vec<DroppedItem<'a>>){
+fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Option<Items>; 10*5], dropped_items: &mut Vec<DroppedItem<'a>>, delta: &f32){
 	let mut items_to_remove: Vec<usize> = Vec::new();
 
 	for (iter, dropped_item) in dropped_items.iter().enumerate(){
