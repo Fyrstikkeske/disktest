@@ -31,5 +31,6 @@ pub async fn texture_manager() -> Texturemanager{
     texturemanager.pickaxe.set_filter(FilterMode::Nearest);
     texturemanager.simple_spaceship.set_filter(FilterMode::Nearest);
     texturemanager.nameplate.set_filter(FilterMode::Nearest);
+    
     texturemanager
 }

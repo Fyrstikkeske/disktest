@@ -24,10 +24,11 @@ struct GameState<'a>{
 	delta: f32,
 	chunks_in_view: HashMap<IVec2,ChunkWithOtherInfo>,
 	texturemanager: texturemanager::Texturemanager,
-	player_hotbar:[Option<Items>;10],
+	player_inventory: [Option<Items>;10*5],
 	select_hotbar: i32,
 	spaceships: Vec<Rc<RefCell<SpaceShip<'a>>>>,
 	dropped_items: Vec<DroppedItem<'a>>,
+	is_inventory_open: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -96,11 +97,6 @@ async fn main() {
 
 	let texturemanager: texturemanager::Texturemanager = texturemanager::texture_manager().await;
 
-    let mut zoom:f32 = 48.0;
-    let mut camera_rotation:f32 = 0.0;
-    let mut camera_zoom = Vec2{x:1./10.0, y:1./10.0};
-    let mut camera_target:Vec2 = Vec2 { x: 0.0, y: 0.0 };
-
 	let drop:DroppedItem = DroppedItem{
 		entity: collision::MovableEntity{
 			dynrect: collision::DynRect{rect:Rect{x:10.4, y: 605.0, w: 1.7, h:1.7}, velocity: Vec2::ZERO},
@@ -122,19 +118,7 @@ async fn main() {
 	which: SpaceShipsTypes::Simple,
 	}));
 
-	let mut chunks_in_view:HashMap<IVec2,ChunkWithOtherInfo> = HashMap::new();
-	let mut dropped_items:Vec<DroppedItem> = vec![drop];
-	//let mut space_ships: Vec<Rc<RefCell<SpaceShip>>> = vec![spaceship];
 
-	let mut player_hotbar:[Option<Items>;10] = [None; 10];
-	
-
-
-	player_hotbar[0] = Some(Items::PickAxe);
-	player_hotbar[1] = Some(Items::DirtBlock { amount: 1 });
-	player_hotbar[2] = Some(Items::StoneBlock { amount: 1 });
-	player_hotbar[3] = Some(Items::GrassBlock { amount: 1 });
-	player_hotbar[9] = Some(Items::DirtBlock { amount: 1 });
 
 	let mut gamestate: GameState = GameState{
 		planets: Vec::new(),
@@ -143,11 +127,20 @@ async fn main() {
 		delta: 0.0,
 		chunks_in_view: HashMap::new(),
 		texturemanager: texturemanager::texture_manager().await,
-		player_hotbar: player_hotbar,
+		player_inventory: [None; 10*5],
 		select_hotbar: 1,
 		spaceships: Vec::new(),
-		dropped_items: dropped_items,
+		dropped_items: vec![drop],
+		is_inventory_open:false,
 	};
+
+	gamestate.player_inventory[0] = Some(Items::PickAxe);
+	gamestate.player_inventory[1] = Some(Items::DirtBlock { amount: 1 });
+	gamestate.player_inventory[2] = Some(Items::StoneBlock { amount: 1 });
+	gamestate.player_inventory[3] = Some(Items::GrassBlock { amount: 1 });
+	gamestate.player_inventory[9] = Some(Items::DirtBlock { amount: 1 });
+	gamestate.player_inventory[10] = Some(Items::PickAxe);
+
 
 	gamestate.planets.push(terra);
 	gamestate.planets.push(planet_me);
@@ -181,10 +174,15 @@ async fn main() {
 
 		spaceship_system(&mut gamestate);
 		
+		pick_up_items(&gamestate.player, &mut gamestate.player_inventory, &mut gamestate.dropped_items);
 		pick_up_items(&gamestate.player, &mut player_hotbar, &mut gamestate.dropped_items, &gamestate.delta);
 		if let Some(number) = keyboard_number() {
 			gamestate.select_hotbar = number as i32 
 		}
+
+		if is_key_pressed(KeyCode::Escape) { gamestate.is_inventory_open = !gamestate.is_inventory_open};
+
+
 
 		render_dropped_items(&gamestate.dropped_items, &texturemanager);
 
@@ -192,8 +190,11 @@ async fn main() {
 		set_default_camera();
 
 
-		render_hotbar(&player_hotbar, &texturemanager, &gamestate.select_hotbar);
-		if true {
+		render_hotbar(&gamestate.player_inventory, &texturemanager, &gamestate.select_hotbar);
+		if gamestate.is_inventory_open{
+			render_rest_of_the_inventory(&gamestate.player_inventory, &texturemanager);
+		}
+		if false {
 			draw_text_debug(&compacta_font, &gamestate);
 		}
     	
@@ -297,7 +298,7 @@ fn planets_system(gamestate:&mut GameState){
 	for planet in &gamestate.planets {
         let planet = planet.borrow_mut();
         let mut rotation_mut = planet.rotation.borrow_mut();
-		//*rotation_mut += gamestate.delta * 0.1;
+		*rotation_mut += gamestate.delta * 0.5;
         *rotation_mut = rotation_mut.rem_euclid(-std::f32::consts::TAU);
     }
 }
@@ -496,7 +497,7 @@ fn render_spaceships(spaceships: &Vec<Rc<RefCell<SpaceShip>>>, texturemanager: &
 
 
 
-fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Option<Items>; 10], dropped_items: &mut Vec<DroppedItem<'a>>, delta: &f32){
+fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Option<Items>; 10*5], dropped_items: &mut Vec<DroppedItem<'a>>){
 	let mut items_to_remove: Vec<usize> = Vec::new();
 
 	for (iter, dropped_item) in dropped_items.iter().enumerate(){
@@ -516,10 +517,24 @@ fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Opti
 		{continue;}
 		
 		items_to_remove.push(iter);
-		for (iteriter, bar) in hotebaru.iter().enumerate(){
+		for (iteriter, bar) in hotebaru.iter_mut().enumerate(){
+			if let Some(existing_item) = bar {
+    		    // Check if they are the same variant (ignoring amount)
+    		    if std::mem::discriminant(existing_item) == std::mem::discriminant(&dropped_item.items) {
+    		        match existing_item {
+    		            Items::DirtBlock { amount }
+    		            | Items::StoneBlock { amount }
+    		            | Items::GrassBlock { amount } => {
+    		                *amount += 1;
+    		                break;
+    		            }
+    		            _ => continue,
+    		        }
+    		    }
+    		}
+
 			if bar.is_some() {continue};
 			hotebaru[iteriter] = Some(dropped_item.items);
-
 			break;
 		}
 	}
@@ -570,7 +585,7 @@ fn hotbar_logic(gamestate: &mut GameState){
 	
 
 
-	let item = gamestate.player_hotbar[gamestate.select_hotbar as usize];
+	let item = gamestate.player_inventory[gamestate.select_hotbar as usize];
 
 	let item = match item {
 		Some(x) => x,
@@ -585,6 +600,7 @@ fn hotbar_logic(gamestate: &mut GameState){
 			Items::StoneBlock { amount: _ } => place_block(BlockType::Stone, camera, planet, chunks_in_view),
 			Items::GrassBlock { amount: _ } => place_block(BlockType::Grass, camera, planet, chunks_in_view),
 			Items::PickAxe => destroy_block(camera, gamestate.player.planet.clone().unwrap(), chunks_in_view, &mut gamestate.dropped_items),
+			_ => {},
 		};
 	}
 
@@ -906,7 +922,7 @@ fn movement_input_space(player: &mut DynRect, delta: &f32){
 }
 
 
-fn render_hotbar(hotebaru: &[Option<Items>;10], texturemanager: &Texturemanager, select_hotbar:&i32){
+fn render_hotbar(hotebaru: &[Option<Items>;10*5], texturemanager: &Texturemanager, select_hotbar:&i32){
 	let scale:f32 = 4.0;
 
 	let dynamic_x_offset = scale*2.0;
@@ -920,27 +936,41 @@ fn render_hotbar(hotebaru: &[Option<Items>;10], texturemanager: &Texturemanager,
 				dest_size: Some(vec2(texturemanager.hotbar.width(), texturemanager.hotbar.height()) * scale),
 				..Default::default()});
 
-	for (iter, item) in hotebaru.iter().enumerate(){
+	for (iter, item) in hotebaru.iter().enumerate().take(10){
+		
 		let item = match item {
 			Some(x) => x,
 			None => continue
 		};
 
+		let mut count:Option<u32> = None;
 		let item_texture: &Texture2D  = match item {
-			Items::DirtBlock { amount: _ } => &texturemanager.dirt,
-			Items::StoneBlock { amount: _ } => &texturemanager.stone,
-			Items::GrassBlock { amount: _ } => &texturemanager.grass,
+			Items::DirtBlock { amount } => {count = Some(*amount); &texturemanager.dirt},
+			Items::StoneBlock { amount } => {count = Some(*amount); &texturemanager.stone},
+			Items::GrassBlock { amount } => {count = Some(*amount); &texturemanager.grass},
 			Items::PickAxe =>  &texturemanager.pickaxe,
 		};
+
+
 		
 		draw_texture_ex(item_texture,
-			dynamic_x_offset - (item_texture.width() * scale) / 2.0 + ((iter as f32) * 18.0 + 10.0) * scale,
-			dynamic_y_offset + (item_texture.height() * scale * 0.5) - (6.0 * scale),
+			dynamic_x_offset - (16.0 * scale) / 2.0 + ((iter as f32) * 18.0 + 10.0) * scale,
+			dynamic_y_offset + (16.0 * scale * 0.5) - (6.0 * scale),
 			  WHITE,
 			   DrawTextureParams{
 				   dest_size: Some(vec2(16.0, 16.0) * scale),
 				   ..Default::default()}
 		);
+		if let Some(mount) = count{
+			draw_text_ex(
+			format!("{}", mount).as_str(),
+			dynamic_x_offset - (16.0 * scale) / 2.0 + ((iter as f32) * 18.0 + 10.0) * scale,
+			dynamic_y_offset + (16.0 * scale * 0.5) - (6.0 * scale) + 16.0 * scale,
+			TextParams {
+				font_size: 10,
+				..Default::default()}
+		);
+		}
 	}
 	draw_rectangle_lines(
 		dynamic_x_offset - (22.0 * scale) / 2.0 + ((*select_hotbar as f32) * 18.0 + 10.0) * scale,
@@ -949,4 +979,59 @@ fn render_hotbar(hotebaru: &[Option<Items>;10], texturemanager: &Texturemanager,
 		22.0 * scale,
 		2.0 * scale,
 		BLUE,);
+}
+
+
+fn render_rest_of_the_inventory(inventory: &[Option<Items>;10*5], texturemanager: &Texturemanager){
+	let scale:f32 = 4.0;
+
+	let dynamic_x_offset = scale*2.0;
+	let dynamic_y_offset = scale*2.0;
+
+	for iter in 0..4{
+		draw_texture_ex(&texturemanager.hotbar,
+			dynamic_x_offset,
+			 dynamic_y_offset*3.0 + texturemanager.hotbar.height()*scale + (texturemanager.hotbar.height() * iter as f32) * scale,
+			   WHITE,
+			    DrawTextureParams{
+					dest_size: Some(vec2(texturemanager.hotbar.width(), texturemanager.hotbar.height()) * scale),
+					..Default::default()});
+	}
+
+
+	for (iter, item) in inventory.iter().enumerate().skip(10){
+		
+		let item = match item {
+			Some(x) => x,
+			None => continue
+		};
+		let mut count:Option<u32> = None;
+
+		let item_texture: &Texture2D  = match item {
+			Items::DirtBlock { amount } => {count = Some(*amount); &texturemanager.dirt},
+			Items::StoneBlock { amount } => {count = Some(*amount); &texturemanager.stone},
+			Items::GrassBlock { amount } => {count = Some(*amount); &texturemanager.grass},
+			Items::PickAxe =>  &texturemanager.pickaxe,
+		};
+
+		
+		draw_texture_ex(item_texture,
+			dynamic_x_offset - (16.0 * scale) / 2.0 + (((iter%10) as f32) * 18.0 + 10.0) * scale,
+			dynamic_y_offset*3.0 + (16.0 * scale * 0.5) - (6.0 * scale) + (texturemanager.hotbar.height() * (iter/10) as f32) * scale,
+			  WHITE,
+			   DrawTextureParams{
+				   dest_size: Some(vec2(16.0, 16.0) * scale),
+				   ..Default::default()}
+		);
+		if let Some(mount) = count{
+			draw_text_ex(
+			format!("{}", mount).as_str(),
+			dynamic_x_offset - (16.0 * scale) / 2.0 + (((iter%10) as f32) * 18.0 + 10.0) * scale,
+			dynamic_y_offset*3.0 + (16.0 * scale * 0.5) - (6.0 * scale) + (texturemanager.hotbar.height() * (iter/10) as f32) * scale + 16.0 * scale,
+			TextParams {
+				font_size: 10,
+				..Default::default()}
+		);
+		}
+	}
 }
