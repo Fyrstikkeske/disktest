@@ -40,6 +40,7 @@ pub fn readchunkfile(position: IVec2, planet: &Planet) -> ChunkWithOtherInfo{
         Err(err) => {
             match err.kind() {
                 io::ErrorKind::NotFound => {
+                    //just check if the planets folder exist. might not which is the worst case
                     //eprintln!("{} most likely not generated chunks at {} yet", err, position); 
                     return ChunkWithOtherInfo{position: position, chunk: generate_chunk(6, position, planet)};}
                 _ => {
@@ -151,11 +152,24 @@ pub fn writechunkfile(chunk_info: ChunkWithOtherInfo, planet: &Planet){
     }
 
     let file_to_write_to = "Planets/".to_string() + planet.name  + "/x" + &chunk_info.position.x.to_string() + "y" + &chunk_info.position.y.to_string();
-    //println!("{}", file_to_write_to);
     
-    match fs::write(file_to_write_to, chunkstring){
+    
+    match fs::write(&file_to_write_to, chunkstring){
         Ok(_) => {}
-        Err(err) => eprintln!("Error unable to save file: {}", err),
+        Err(err) => {
+            
+            let planets_folder_to_save_to = "Planets/".to_string() + planet.name;
+            let location_to_planet_folder = fs::read_dir(&planets_folder_to_save_to);
+            match location_to_planet_folder {
+                Ok(_) => eprintln!("Error unable to save file, planets folder exist though. so idk maybe out of space to save chunk?: {}. ERR:{}", file_to_write_to, err),
+                Err(_) => {
+                    match fs::create_dir(planets_folder_to_save_to){
+                        Ok(_) => {},
+                        Err(err) => eprintln!("planets folder doesnt exist, and OS refuse to make it: {}. ERR:{}", file_to_write_to, err),
+                    }
+                },
+            }
+        },
     }
 }
 

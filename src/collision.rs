@@ -150,11 +150,12 @@ pub fn dynamic_rectangle_vs_planet_chunks(
         let chunktoread = match chunktoread {
             Some(chunk) => chunk,
             None => {
+                continue;/*
                 eprintln!(
                     "Trying to access a chunk that doesn't exist for collision at {} {}",
                     chunk_x, chunk_y
-                );
-                continue;
+                );*/
+                
             }
         };
 

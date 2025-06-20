@@ -519,7 +519,6 @@ fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Opti
 		items_to_remove.push(iter);
 		for (iteriter, bar) in hotebaru.iter_mut().enumerate(){
 			if let Some(existing_item) = bar {
-    		    // Check if they are the same variant (ignoring amount)
     		    if std::mem::discriminant(existing_item) == std::mem::discriminant(&dropped_item.items) {
     		        match existing_item {
     		            Items::DirtBlock { amount }
