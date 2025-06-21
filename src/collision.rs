@@ -25,7 +25,7 @@ pub struct DynRect{
 pub struct RayRectInfo{
     pub hit: bool,
     contact_point:Vec2,
-    contact_normal:Vec2,
+    pub contact_normal:Vec2,
     t_hit_near:f32,
 }
 
@@ -117,8 +117,10 @@ pub fn dynamic_rectangle_vs_planet_chunks(
     dynrect: &mut DynRect,
     chunks_in_view: &HashMap<IVec2,ChunkWithOtherInfo>,
     planet: &crate::chunk::Planet,
-) -> bool{
-    let mut collisiondetected = false;
+) -> RayRectInfo{
+
+    let mut info = RayRectInfo::default();
+
     let future_dynrect_position_x: f32 = dynrect.rect.x + (dynrect.velocity.x * *delta);
     let future_dynrect_position_y: f32 = dynrect.rect.y + (dynrect.velocity.y * *delta);
 
@@ -173,15 +175,15 @@ pub fn dynamic_rectangle_vs_planet_chunks(
             w: 1.0,
             h: 1.0,
         };
-        let ray_rect_info = dynamic_rect_vs_rect(&block, dynrect, *delta);
+        info = dynamic_rect_vs_rect(&block, dynrect, *delta);
 
-        if ray_rect_info.hit {
-            collisions_with.push((blockindex, ray_rect_info.t_hit_near, block));
+        if info.hit {
+            collisions_with.push((blockindex, info.t_hit_near, block));
         }
     }
 
     collisions_with.sort_by(|a, b| a.1.partial_cmp(&b.1).unwrap());
-
+    let mut touchedfloor = false;
     for round in collisions_with {
         let x = round.2.x;
         let y = round.2.y;
@@ -192,14 +194,14 @@ pub fn dynamic_rectangle_vs_planet_chunks(
             w: 1.0,
             h: 1.0,
         };
-        let ray_rect_info = dynamic_rect_vs_rect(&element, dynrect, *delta);
-        if ray_rect_info.hit {
-            dynrect.velocity += ray_rect_info.contact_normal * dynrect.velocity.abs()
-                * (1.0 - ray_rect_info.t_hit_near);
-                collisiondetected = true;
+        info = dynamic_rect_vs_rect(&element, dynrect, *delta);
+        if info.hit {
+            dynrect.velocity += info.contact_normal * dynrect.velocity.abs() * (1.0 - info.t_hit_near);
+            if info.contact_normal.y > 0.0 {touchedfloor = true}
         }
     }
-    collisiondetected
+    if touchedfloor {info.contact_normal.y += 1.0};
+    info
 }
 
 #[inline]

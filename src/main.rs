@@ -8,6 +8,8 @@ use macroquad::prelude::*;
 use num_complex::Complex;
 use texturemanager::Texturemanager;
 
+use crate::collision::dynamic_rectangle_vs_planet_chunks;
+
 mod render;
 mod collision;
 mod chunk;
@@ -29,6 +31,7 @@ struct GameState<'a>{
 	spaceships: Vec<Rc<RefCell<SpaceShip<'a>>>>,
 	dropped_items: Vec<DroppedItem<'a>>,
 	is_inventory_open: bool,
+	touches_floor: bool,
 }
 
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
@@ -132,6 +135,7 @@ async fn main() {
 		spaceships: Vec::new(),
 		dropped_items: vec![drop],
 		is_inventory_open:false,
+		touches_floor: false,
 	};
 
 	gamestate.player_inventory[0] = Some(Items::PickAxe);
@@ -356,12 +360,34 @@ fn on_planet(gamestate:&mut GameState){
 	if let Some(spaceship) = &gamestate.player.riding{
 		gamestate.player.dynrect.rect.move_to(spaceship.borrow().entity.dynrect.rect.center() - gamestate.player.dynrect.rect.size()/2.0);
 	}else {
-		movement_input(&mut gamestate.player.dynrect, &gamestate.delta);
-		collision::dynamic_rectangle_vs_planet_chunks(
+		if gamestate.touches_floor{
+			if is_key_down(KeyCode::Space) {
+				gamestate.player.dynrect.velocity.y = 2000.0 * gamestate.delta;
+			}
+			if is_key_down(KeyCode::A) {
+				gamestate.player.dynrect.velocity.x -= 100.0 * gamestate.delta;
+			}
+			if is_key_down(KeyCode::D) {
+				gamestate.player.dynrect.velocity.x += 100.0 * gamestate.delta;
+			}
+		} else {
+			if is_key_down(KeyCode::A) {
+				gamestate.player.dynrect.velocity.x -= 40.0 * gamestate.delta;
+			}
+			if is_key_down(KeyCode::D) {
+				gamestate.player.dynrect.velocity.x += 40.0 * gamestate.delta;
+			}
+		}
+		let info: collision::RayRectInfo = dynamic_rectangle_vs_planet_chunks(
 			&gamestate.delta,
 			&mut gamestate.player.dynrect,
 			&gamestate.chunks_in_view,
 			&gamestate.player.planet.clone().unwrap().borrow());
+		if info.contact_normal.y > 0.0{
+			gamestate.touches_floor = true
+		}else {
+			gamestate.touches_floor = false
+		}
 		playermovement(&mut gamestate.player.dynrect, &gamestate.delta);
 	}
 
@@ -730,10 +756,10 @@ fn camera_manager_because_fucking_everything_is_broken<'a>(player: &mut collisio
 fn playermovement(player: &mut DynRect, delta: &f32){
 	player.rect.x += player.velocity.x * delta;
 	player.rect.y += player.velocity.y * delta;
-	player.velocity.x *= 0.96;
-	player.velocity.y *= 0.96;
-	player.velocity.y -= 9.81* delta;
-	if player.velocity.x.abs() < 4.{player.velocity.x *= 0.89;};
+	player.velocity.x *= 0.98;
+	player.velocity.y *= 0.99;
+	player.velocity.y -= 19.81* delta;
+	if player.velocity.x.abs() < 4.{player.velocity.x *= 0.93;};
 }
 
 fn playermovementspace(player: &mut DynRect, delta: &f32){
@@ -883,20 +909,7 @@ fn rocket_input(rocket: &mut MovableEntity, delta: &f32){
 		rocket.dynrect.velocity = rocket.dynrect.velocity.clamp_length_max(500.0 * delta);
 	}
 }
-fn movement_input(player: &mut DynRect, delta: &f32){
-	if is_key_down(KeyCode::A) {
-		player.velocity.x -= 100.0 * delta;
-	}
-	if is_key_down(KeyCode::D) {
-		player.velocity.x += 100.0 * delta;
-	}
-	if is_key_down(KeyCode::W) {
-		player.velocity.y += 40.0 * delta;
-	}
-	if is_key_down(KeyCode::S) {
-		player.velocity.y -= 40.0 * delta;
-	}
-}
+
 
 fn movement_input_space(player: &mut DynRect, delta: &f32){
 	if is_key_down(KeyCode::A) {
