@@ -156,9 +156,8 @@ async fn main() {
 
 		
 		planets_system(&mut gamestate);
-		
 
-		
+
 
 		camera_manager_because_fucking_everything_is_broken(&mut gamestate.player, &mut gamestate.camera);
 		gamestate.camera.zoom *= 48.;
@@ -215,8 +214,8 @@ fn spaceship_system(gamestate:&mut GameState){
 			for spaceship in &gamestate.spaceships{
 				if spaceship.borrow().entity.planet.is_none(){ continue;}
 				let distance = gamestate.player.dynrect.rect.center().distance(spaceship.borrow().entity.dynrect.rect.center());
-				if distance > 5.0{continue;}
-				gamestate.player.riding = Some(spaceship.clone());
+				let touches = collision::loopingaabb(&gamestate.player.dynrect.rect, &spaceship.borrow().entity.dynrect.rect,(gamestate.player.planet.clone().unwrap().borrow_mut().size.x * 32) as f32, 100000.0);
+				if distance < 5.0 || touches{gamestate.player.riding = Some(spaceship.clone())}
 			}
 		}
 	}
@@ -502,17 +501,12 @@ fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Opti
 	for (iter, dropped_item) in dropped_items.iter().enumerate(){
 		if dropped_item.entity.planet != player.planet{continue;}
 
-		//let distance_between = player.dynrect.rect.center().distance(dropped_item.entity.dynrect.rect.center());
-		//println!("{}, {}", player.dynrect.rect.center(), dropped_item.entity.dynrect.rect.center());
-		
-
-		let ray_rect_info = crate::collision::looping_dynamic_rect_vs_rect(
+		let touched = collision::loopingaabb(
 			&dropped_item.entity.dynrect.rect, 
-			&player.dynrect,
-			*delta, 
+			&player.dynrect.rect,
 		(player.planet.clone().unwrap().borrow_mut().size.x * 32) as f32, 
 			100000.0);
-		if !(ray_rect_info.hit)
+		if !(touched)
 		{continue;}
 		
 		items_to_remove.push(iter);

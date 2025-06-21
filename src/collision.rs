@@ -29,6 +29,7 @@ pub struct RayRectInfo{
     t_hit_near:f32,
 }
 
+#[inline]
 fn ray_vs_rect(ray: &Ray, rect: &Rect) -> RayRectInfo {
     let mut t_near = (rect.point() - ray.origin) / ray.direction;
     let mut t_far = (rect.point() + rect.size() - ray.origin) / ray.direction;
@@ -56,31 +57,31 @@ fn ray_vs_rect(ray: &Ray, rect: &Rect) -> RayRectInfo {
     }
 }
 
-pub fn looping_dynamic_rect_vs_rect(rect: &Rect, dynrect: &DynRect, delta: f32, width: f32, height: f32) -> RayRectInfo {
-    let x_offsets = [0.0, width, -width];
-    let y_offsets = [0.0, height, -height];
-    
-    let mut earliest_hit = RayRectInfo::default();
+#[inline]
+pub(crate) 
+fn looping_dynamic_rect_vs_rect(
+    rect: &Rect,
+    dynrect: &DynRect,
+    delta: f32,
+    width: f32,
+    height: f32,
+) -> RayRectInfo {
+    let dx = rect.x - dynrect.rect.x;
+    let dy = rect.y - dynrect.rect.y;
 
-    for &x_offset in &x_offsets {
-        for &y_offset in &y_offsets {
-            let shifted_rect = Rect {
-                x: rect.x + x_offset,
-                y: rect.y + y_offset,
-                w: rect.w,
-                h: rect.h,
-            };
+    let adjusted_dx = dx - width * (dx / width).round();
+    let adjusted_dy = dy - height * (dy / height).round();
 
-            let info = dynamic_rect_vs_rect(&shifted_rect, dynrect, delta);
-            if info.hit && (earliest_hit.hit == false || info.t_hit_near < earliest_hit.t_hit_near) {
-                earliest_hit = info;
-                break;
-            }
-        }
-    }
-    earliest_hit
+    let candidate_rect = Rect::new(
+        dynrect.rect.x + adjusted_dx,
+        dynrect.rect.y + adjusted_dy,
+        rect.w,
+        rect.h,
+    );
+    dynamic_rect_vs_rect(&candidate_rect, dynrect, delta)
 }
 
+#[inline]
 pub(crate) 
 fn dynamic_rect_vs_rect(rect: &Rect, dynrect: &DynRect, delta: f32) -> RayRectInfo {
     if dynrect.velocity == Vec2::ZERO {
@@ -199,4 +200,35 @@ pub fn dynamic_rectangle_vs_planet_chunks(
         }
     }
     collisiondetected
+}
+
+#[inline]
+pub(crate) fn loopingaabb(rect1: &Rect, rect2: &Rect, width: f32, height: f32) -> bool {
+    let dx = rect2.x - rect1.x;
+    let dy = rect2.y - rect1.y;
+
+    
+    let adjusted_dx = dx - width * (dx / width).round();
+    let adjusted_dy = dy - height * (dy / height).round();
+
+    
+    let candidate_rect = Rect::new(
+        rect1.x + adjusted_dx,
+        rect1.y + adjusted_dy,
+        rect2.w,
+        rect2.h
+    );
+
+    rect1.x < candidate_rect.x + candidate_rect.w &&
+    rect1.x + rect1.w > candidate_rect.x &&
+    rect1.y < candidate_rect.y + candidate_rect.h &&
+    rect1.y + rect1.h > candidate_rect.y
+}
+
+#[inline]
+fn aabb(rect1: &Rect,rect2: &Rect) -> bool{
+	rect1.x < rect2.x + rect2.w &&
+    rect1.x + rect1.w > rect2.x &&
+    rect1.y < rect2.y + rect2.h &&
+    rect1.y + rect1.h > rect2.y
 }
