@@ -203,6 +203,18 @@ async fn main() {
 	);
 	gamestate.item_references.insert("Grass", gamestate.itemtypes.len() - 1);
 
+	gamestate.itemtypes.push(
+		ItemType{ id: "pickaxe".to_string(),
+			name: "DIRTMADAFAKA".to_string(),
+			texture: Some(load_texture("textures/iron_pickaxe.png").await.unwrap()),
+			placeable: true,
+			max_stack: 64,
+			tool: true,
+			block: false,
+			collidable: true,
+		},
+	);
+	gamestate.item_references.insert("pickaxe", gamestate.itemtypes.len() - 1);
 
 	for i in gamestate.itemtypes.iter_mut(){
 		if let Some(texture) = &i.texture {
@@ -210,13 +222,16 @@ async fn main() {
 		}
 	}
 	
-	/*
-	gamestate.player_inventory[0] = Some(Items::PickAxe);
-	gamestate.player_inventory[1] = Some(Items::DirtBlock { amount: 1 });
-	gamestate.player_inventory[2] = Some(Items::StoneBlock { amount: 1 });
-	gamestate.player_inventory[3] = Some(Items::GrassBlock { amount: 1 });
-	gamestate.player_inventory[9] = Some(Items::DirtBlock { amount: 1 });
-	gamestate.player_inventory[10] = Some(Items::PickAxe);*/
+	if let Some(pickaxe) = gamestate.item_references.get("pickaxe"){
+		gamestate.player_inventory[0] = Some( Item{amount:1, item_type_id: *pickaxe});
+	}
+	if let Some(pickaxe) = gamestate.item_references.get("Grass"){
+		gamestate.player_inventory[1] = Some( Item{amount:1, item_type_id: *pickaxe});
+	}
+	if let Some(pickaxe) = gamestate.item_references.get("Stone"){
+		gamestate.player_inventory[2] = Some( Item{amount:1, item_type_id: *pickaxe});
+	}
+	
 
 
 	gamestate.planets.push(terra);
@@ -682,16 +697,18 @@ fn hotbar_logic(gamestate: &mut GameState){
 	};
 
 	//TODO FIX
-	/*
+	//destroy_block(camera, gamestate.player.planet.clone().unwrap(), chunks_in_view, &mut gamestate.dropped_items),
 	if is_mouse_button_down(MouseButton::Left) {
-		match item {
-			Items::DirtBlock { amount: _} => place_block(BlockType::Dirt, camera, planet, chunks_in_view),
-			Items::StoneBlock { amount: _ } => place_block(BlockType::Stone, camera, planet, chunks_in_view),
-			Items::GrassBlock { amount: _ } => place_block(BlockType::Grass, camera, planet, chunks_in_view),
-			Items::PickAxe => destroy_block(camera, gamestate.player.planet.clone().unwrap(), chunks_in_view, &mut gamestate.dropped_items),
-			_ => {},
-		};
-	}*/
+		
+		if gamestate.itemtypes[item.item_type_id].placeable{
+			place_block(item.item_type_id, camera, planet, chunks_in_view);
+		}
+		
+		if gamestate.itemtypes[item.item_type_id].tool{
+			destroy_block(camera, gamestate.player.planet.clone().unwrap(), chunks_in_view, &mut gamestate.dropped_items);
+		}
+		
+	}
 
 }
 

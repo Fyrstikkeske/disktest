@@ -54,6 +54,25 @@ pub fn readchunkfile <'a>(position: IVec2, planet: &Planet, item_references: &Ha
         if let Some(blocksenum) = item_references.get(item){
             chunk[iteration] = *blocksenum;
         }else {
+            //try correcting wrongs?
+            if item == "dirt"{
+                if let Some(blocksenum) = item_references.get("Dirt"){
+                    chunk[iteration] = *blocksenum;
+                    continue;
+                }
+            }
+            if item == "air"{
+                if let Some(blocksenum) = item_references.get("Air"){
+                    chunk[iteration] = *blocksenum;
+                    continue;
+                }
+            }
+            if item == "grass"{
+                if let Some(blocksenum) = item_references.get("Grass"){
+                    chunk[iteration] = *blocksenum;
+                    continue;
+                }
+            }
             unreachable!("\"{}\"", item);
         } 
     }
