@@ -2,7 +2,7 @@ use core::f32;
 use std::{cell::RefCell, collections::HashMap, rc::Rc};
 
 
-use chunk::{BlockType, ChunkWithOtherInfo, Planet};
+use chunk::{ChunkWithOtherInfo, Planet};
 use collision::{DynRect, MovableEntity};
 use macroquad::prelude::*;
 use num_complex::Complex;
@@ -26,20 +26,31 @@ struct GameState<'a>{
 	delta: f32,
 	chunks_in_view: HashMap<IVec2,ChunkWithOtherInfo>,
 	texturemanager: texturemanager::Texturemanager,
-	player_inventory: [Option<Items>;10*5],
+	player_inventory: [Option<Item>;10*5],
 	select_hotbar: i32,
 	spaceships: Vec<Rc<RefCell<SpaceShip<'a>>>>,
 	dropped_items: Vec<DroppedItem<'a>>,
 	is_inventory_open: bool,
 	touches_floor: bool,
+	itemtypes: Vec<ItemType>,
+	item_references: HashMap<&'a str , usize>,
 }
 
-#[derive(Clone, Copy, PartialEq, Eq, Debug)]
-enum Items {
-	DirtBlock{amount: u32},
-	StoneBlock{amount: u32},
-	GrassBlock{amount: u32},
-	PickAxe,
+#[derive(Clone, Copy)]
+pub struct Item {
+    pub item_type_id: usize,
+    pub amount: u32,
+}
+
+pub struct ItemType {
+    pub id: String,
+    pub name: String,
+    pub texture: Option<Texture2D>,
+    pub placeable: bool,
+    pub max_stack: u32,
+	pub tool: bool,
+	pub block: bool,
+	pub collidable: bool,
 }
 
 enum PlaceOrBreak{
@@ -55,9 +66,10 @@ enum SpaceShipsTypes{
 	IUseALotOfSpaceships,
 }
 
+
 struct DroppedItem<'a>{
 	entity: collision::MovableEntity<'a>,
-	items: Items,
+	item: Item,
 }
 #[derive(Debug)]
 struct SpaceShip<'a>{
@@ -65,7 +77,6 @@ struct SpaceShip<'a>{
 	fuel: i32,
 	which: SpaceShipsTypes,
 }
-
 
 #[macroquad::main("Torus")]
 async fn main() {
@@ -99,7 +110,7 @@ async fn main() {
     let compacta_font = load_ttf_font("Assets/compacta.ttf").await.unwrap();
 
 	let texturemanager: texturemanager::Texturemanager = texturemanager::texture_manager().await;
-
+	/*
 	let drop:DroppedItem = DroppedItem{
 		entity: collision::MovableEntity{
 			dynrect: collision::DynRect{rect:Rect{x:10.4, y: 605.0, w: 1.7, h:1.7}, velocity: Vec2::ZERO},
@@ -107,8 +118,8 @@ async fn main() {
 			riding: None,
 			rot: 0.0 
 		},
-		items:Items::PickAxe,
-	};
+		item:Items::PickAxe,
+	}; */
 
 	let sigma_spaceship:Rc<RefCell<SpaceShip>> =  Rc::new(RefCell::new(SpaceShip{
 		entity: collision::MovableEntity{
@@ -130,20 +141,82 @@ async fn main() {
 		delta: 0.0,
 		chunks_in_view: HashMap::new(),
 		texturemanager: texturemanager::texture_manager().await,
-		player_inventory: [None; 10*5],
+		player_inventory: [const { None }; 10*5],
 		select_hotbar: 1,
 		spaceships: Vec::new(),
-		dropped_items: vec![drop],
+		dropped_items: Vec::new(),
 		is_inventory_open:false,
 		touches_floor: false,
+		itemtypes: Vec::new(),
+		item_references: HashMap::new(),
 	};
 
+	gamestate.itemtypes.push(
+		ItemType{ id: "Air".to_string(),
+			name: "DIRTMADAFAKA".to_string(),
+			texture: None,
+			placeable: false,
+			max_stack: 64,
+			tool: false,
+			block: false,
+			collidable: false,
+		},
+	);
+	gamestate.item_references.insert("Air", gamestate.itemtypes.len() - 1);
+
+	gamestate.itemtypes.push(
+		ItemType{ id: "Dirt".to_string(),
+			name: "DIRTMADAFAKA".to_string(),
+			texture: Some(load_texture("textures/dirt.png").await.unwrap()),
+			placeable: true,
+			max_stack: 64,
+			tool: false,
+			block: false,
+			collidable: true,
+		},		
+	);
+	gamestate.item_references.insert("Dirt", gamestate.itemtypes.len() - 1);
+
+	gamestate.itemtypes.push(
+		ItemType{ id: "Stone".to_string(),
+			name: "DIRTMADAFAKA".to_string(),
+			texture: Some(load_texture("textures/stone.png").await.unwrap()),
+			placeable: true,
+			max_stack: 64,
+			tool: false,
+			block: false,
+			collidable: true,
+		},
+	);
+	gamestate.item_references.insert("Stone", gamestate.itemtypes.len() - 1);
+
+	gamestate.itemtypes.push(
+		ItemType{ id: "Grass".to_string(),
+			name: "DIRTMADAFAKA".to_string(),
+			texture: Some(load_texture("textures/grass.png").await.unwrap()),
+			placeable: true,
+			max_stack: 64,
+			tool: false,
+			block: false,
+			collidable: true,
+		},
+	);
+	gamestate.item_references.insert("Grass", gamestate.itemtypes.len() - 1);
+
+
+	for i in gamestate.itemtypes.iter_mut(){
+		if let Some(texture) = &i.texture {
+			texture.set_filter(FilterMode::Nearest);
+		}
+	}
+	
+	/*
 	gamestate.player_inventory[0] = Some(Items::PickAxe);
 	gamestate.player_inventory[1] = Some(Items::DirtBlock { amount: 1 });
 	gamestate.player_inventory[2] = Some(Items::StoneBlock { amount: 1 });
 	gamestate.player_inventory[3] = Some(Items::GrassBlock { amount: 1 });
 	gamestate.player_inventory[9] = Some(Items::DirtBlock { amount: 1 });
-	gamestate.player_inventory[10] = Some(Items::PickAxe);
+	gamestate.player_inventory[10] = Some(Items::PickAxe);*/
 
 
 	gamestate.planets.push(terra);
@@ -151,7 +224,12 @@ async fn main() {
 	gamestate.player.planet = Some(gamestate.planets[0].clone());
 	gamestate.spaceships.push(sigma_spaceship);
 	gamestate.spaceships[0].borrow_mut().entity.planet = Some(gamestate.planets[0].clone());
-	gamestate.dropped_items[0].entity.planet = Some(gamestate.planets[0].clone());
+
+	gamestate.player_inventory[10] = Some(Item{ item_type_id: 0, amount: 2 });
+	gamestate.dropped_items.push(
+		DroppedItem{ entity: MovableEntity{ dynrect: DynRect{ rect: Rect { x: 3.0, y: 620.0, w: 1.0, h: 1.0}, velocity: Vec2 { x: 0.0, y: 0.0 } }, 
+		planet: Some(gamestate.planets[0].clone()), riding: None, rot: 0.0 }, item: Item{ item_type_id: 0, amount: 1 } }
+	);
 
 	//THATS WHY HE IS THE GOAT!!! THE GOAT!!!!!!
     loop{
@@ -186,15 +264,15 @@ async fn main() {
 
 
 
-		render_dropped_items(&gamestate.dropped_items, &texturemanager);
+		render_dropped_items(&gamestate.dropped_items, &gamestate.itemtypes );
 
 
 		set_default_camera();
 
 
-		render_hotbar(&gamestate.player_inventory, &texturemanager, &gamestate.select_hotbar);
+		render_hotbar(&gamestate.player_inventory, &texturemanager, &gamestate.select_hotbar, &gamestate.itemtypes);
 		if gamestate.is_inventory_open{
-			render_rest_of_the_inventory(&gamestate.player_inventory, &texturemanager);
+			render_rest_of_the_inventory(&gamestate.player_inventory, &texturemanager, &gamestate.itemtypes);
 		}
 		if false {
 			draw_text_debug(&compacta_font, &gamestate);
@@ -258,7 +336,8 @@ fn spaceship_system(gamestate:&mut GameState){
 				&gamestate.delta,
 				&mut spaceship.entity.dynrect,
 				&gamestate.chunks_in_view,
-				&planet.borrow());
+				&planet.borrow(),
+			&gamestate.itemtypes);
 			spaceship.entity.dynrect.rect.x += spaceship.entity.dynrect.velocity.x * gamestate.delta;
 			spaceship.entity.dynrect.rect.y += spaceship.entity.dynrect.velocity.y * gamestate.delta;
 			spaceship.entity.dynrect.rect.x = spaceship.entity.dynrect.rect.x.rem_euclid((spaceship.entity.planet.clone().unwrap().borrow().size.x * 32) as f32);
@@ -335,8 +414,8 @@ fn off_planet(gamestate:&mut GameState){
 			h: 6.0,
 		};
 
-		chunk::chunks_in_view_manager(&rect, &mut gamestate.chunks_in_view, &planet.borrow());
-		render::render_planet_chunks(&planet.borrow(),&gamestate.chunks_in_view, &gamestate.texturemanager);
+		chunk::chunks_in_view_manager(&rect, &mut gamestate.chunks_in_view, &planet.borrow(), &gamestate.itemtypes, &gamestate.item_references);
+		render::render_planet_chunks(&planet.borrow(),&gamestate.chunks_in_view, &gamestate.itemtypes);
 	}
 
 	if gamestate.player.riding.is_none(){
@@ -349,7 +428,7 @@ fn on_planet(gamestate:&mut GameState){
 	//gamestate.planets[0].borrow_mut().space_position.borrow_mut().x -= 0.001;
 	
 	if gamestate.player.dynrect.rect.y > (gamestate.player.planet.clone().unwrap().borrow().size.y * 32 + 16) as f32 {
-		chunk::save_planet_from_manager(&mut gamestate.chunks_in_view, &gamestate.player.planet.clone().unwrap().borrow());
+		chunk::save_planet_from_manager(&mut gamestate.chunks_in_view, &gamestate.player.planet.clone().unwrap().borrow(), &gamestate.itemtypes);
 		gamestate.player.dynrect.rect.move_to(full_info_planet_to_space_coords(&gamestate.player.planet.clone().unwrap().borrow(), &gamestate.player.dynrect.rect.center()).0 - gamestate.player.dynrect.rect.size()/2.0);
 		gamestate.player.planet = None;
 		gamestate.player.dynrect.velocity = Vec2::ZERO;
@@ -382,7 +461,8 @@ fn on_planet(gamestate:&mut GameState){
 			&gamestate.delta,
 			&mut gamestate.player.dynrect,
 			&gamestate.chunks_in_view,
-			&gamestate.player.planet.clone().unwrap().borrow());
+			&gamestate.player.planet.clone().unwrap().borrow(),
+		&gamestate.itemtypes);
 		if info.contact_normal.y > 0.0{
 			gamestate.touches_floor = true
 		}else {
@@ -398,12 +478,12 @@ fn on_planet(gamestate:&mut GameState){
     	w: 4.0,
     	h: 6.0,
 	};
-	chunk::chunks_in_view_manager(&rect, &mut gamestate.chunks_in_view, &gamestate.player.planet.clone().unwrap().borrow());
+	chunk::chunks_in_view_manager(&rect, &mut gamestate.chunks_in_view, &gamestate.player.planet.clone().unwrap().borrow(), &gamestate.itemtypes, &gamestate.item_references);
 
 	hotbar_logic(gamestate);
 
 	
-	render::render_planet_chunks(&gamestate.player.planet.clone().unwrap().borrow(),&gamestate.chunks_in_view, &gamestate.texturemanager);
+	render::render_planet_chunks(&gamestate.player.planet.clone().unwrap().borrow(),&gamestate.chunks_in_view, &gamestate.itemtypes);
 
 	render_entity(&gamestate.player.planet.clone().unwrap().borrow(), &gamestate.player, &gamestate.texturemanager.imposter);
 
@@ -521,7 +601,7 @@ fn render_spaceships(spaceships: &Vec<Rc<RefCell<SpaceShip>>>, texturemanager: &
 
 
 
-fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Option<Items>; 10*5], dropped_items: &mut Vec<DroppedItem<'a>>, delta: &f32){
+fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, inventory: &mut [Option<Item>; 10*5], dropped_items: &mut Vec<DroppedItem<'a>>, delta: &f32){
 	let mut items_to_remove: Vec<usize> = Vec::new();
 
 	for (iter, dropped_item) in dropped_items.iter().enumerate(){
@@ -532,27 +612,21 @@ fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Opti
 			&player.dynrect.rect,
 		(player.planet.clone().unwrap().borrow_mut().size.x * 32) as f32, 
 			100000.0);
-		if !(touched)
-		{continue;}
+		
+		if !(touched){continue;}
 		
 		items_to_remove.push(iter);
-		for (iteriter, bar) in hotebaru.iter_mut().enumerate(){
+
+		for (iteriter, bar) in inventory.iter_mut().enumerate(){
 			if let Some(existing_item) = bar {
-    		    if std::mem::discriminant(existing_item) == std::mem::discriminant(&dropped_item.items) {
-    		        match existing_item {
-    		            Items::DirtBlock { amount }
-    		            | Items::StoneBlock { amount }
-    		            | Items::GrassBlock { amount } => {
-    		                *amount += 1;
-    		                break;
-    		            }
-    		            _ => continue,
-    		        }
-    		    }
+				if existing_item.item_type_id == dropped_item.item.item_type_id{
+					existing_item.amount += 1;
+					break;
+				}
     		}
 
 			if bar.is_some() {continue};
-			hotebaru[iteriter] = Some(dropped_item.items);
+			inventory[iteriter] = Some(dropped_item.item);
 			break;
 		}
 	}
@@ -562,19 +636,16 @@ fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, hotebaru: &mut [Opti
 }
 
 
-fn render_dropped_items(dropped_items: &Vec<DroppedItem>, texturemanager: &Texturemanager){
+//FUCK DOESNT HANDLE ITEMS NOT ON PLANETS. ERRETA FIX TODO FUCK
+fn render_dropped_items(dropped_items: &Vec<DroppedItem>, itemtypes: &Vec<ItemType>,){
 	
 
 	for dropped_item in dropped_items.iter(){
 		if dropped_item.entity.planet.clone().is_none(){continue;}
-		let texture:&Texture2D = match dropped_item.items {
-			Items::DirtBlock { amount: _ } => {&texturemanager.dirt},
-			Items::GrassBlock { amount: _ } => {&texturemanager.grass},
-			Items::PickAxe => {&texturemanager.pickaxe},
-			Items::StoneBlock { amount: _ } => {&texturemanager.stone},
-			_ => {&texturemanager.imposter},
+
+		if let Some(texture) = itemtypes[0].texture.clone(){
+			render_entity(&dropped_item.entity.planet.clone().unwrap().borrow(), &dropped_item.entity, &texture);
 		};
-		render_entity(&dropped_item.entity.planet.clone().unwrap().borrow(), &dropped_item.entity, texture);
 	}
 }
 
@@ -610,8 +681,8 @@ fn hotbar_logic(gamestate: &mut GameState){
 		None => return,
 	};
 
-
-
+	//TODO FIX
+	/*
 	if is_mouse_button_down(MouseButton::Left) {
 		match item {
 			Items::DirtBlock { amount: _} => place_block(BlockType::Dirt, camera, planet, chunks_in_view),
@@ -620,12 +691,12 @@ fn hotbar_logic(gamestate: &mut GameState){
 			Items::PickAxe => destroy_block(camera, gamestate.player.planet.clone().unwrap(), chunks_in_view, &mut gamestate.dropped_items),
 			_ => {},
 		};
-	}
+	}*/
 
 }
 
 
-fn place_block(block_type: BlockType,camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>){
+fn place_block(id_of_block_to_place: usize ,camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>){
 	let camamara = camera.screen_to_world(mouse_position().into());
 
 	let mut cemera:Vec2 = inverse_disk_position(camamara, planet);
@@ -653,7 +724,7 @@ fn place_block(block_type: BlockType,camera: &Camera2D, planet: &Planet, chunks_
 	};
 	
 	let blockindex: usize = (cemera.x.rem_euclid(32) + (cemera.y.rem_euclid(32)) * 32) as usize;
-	chunktoread.chunk[blockindex] = block_type;
+	chunktoread.chunk[blockindex] = id_of_block_to_place;
 
 }
 
@@ -685,7 +756,7 @@ fn destroy_block<'a>(camera: &Camera2D, planet: Rc<RefCell<Planet<'a>>>, chunks_
 	};
 	
 	let blockindex: usize = (cemera.x.rem_euclid(32) + (cemera.y.rem_euclid(32)) * 32) as usize;
-
+	/*
 	let item = match chunktoread.chunk[blockindex] {
 		BlockType::Stone => Items::StoneBlock { amount: 1 },
 		BlockType::Dirt => Items::DirtBlock { amount: 1 },
@@ -709,10 +780,10 @@ fn destroy_block<'a>(camera: &Camera2D, planet: Rc<RefCell<Planet<'a>>>, chunks_
 			rot: 0.0,
 		},
 		items: item,
-	});
+	});*/
 	
 
-	chunktoread.chunk[blockindex] = BlockType::Air;
+	chunktoread.chunk[blockindex] = 0;
 
 }
 
@@ -927,7 +998,7 @@ fn movement_input_space(player: &mut DynRect, delta: &f32){
 }
 
 
-fn render_hotbar(hotebaru: &[Option<Items>;10*5], texturemanager: &Texturemanager, select_hotbar:&i32){
+fn render_hotbar(hotebaru: &[Option<Item>;10*5], texturemanager: &Texturemanager, select_hotbar:&i32, itemtypes: &Vec<ItemType>){
 	let scale:f32 = 4.0;
 
 	let dynamic_x_offset = scale*2.0;
@@ -948,24 +1019,23 @@ fn render_hotbar(hotebaru: &[Option<Items>;10*5], texturemanager: &Texturemanage
 			None => continue
 		};
 
-		let mut count:Option<u32> = None;
-		let item_texture: &Texture2D  = match item {
-			Items::DirtBlock { amount } => {count = Some(*amount); &texturemanager.dirt},
-			Items::StoneBlock { amount } => {count = Some(*amount); &texturemanager.stone},
-			Items::GrassBlock { amount } => {count = Some(*amount); &texturemanager.grass},
-			Items::PickAxe =>  &texturemanager.pickaxe,
-		};
-
+		let count:Option<u32> = None;
 
 		
-		draw_texture_ex(item_texture,
+		if let Some(texture) = itemtypes[item.item_type_id].texture.clone(){
+			draw_texture_ex(&texture,
 			dynamic_x_offset - (16.0 * scale) / 2.0 + ((iter as f32) * 18.0 + 10.0) * scale,
 			dynamic_y_offset + (16.0 * scale * 0.5) - (6.0 * scale),
 			  WHITE,
 			   DrawTextureParams{
 				   dest_size: Some(vec2(16.0, 16.0) * scale),
 				   ..Default::default()}
-		);
+			);
+		};
+
+
+		
+
 		if let Some(mount) = count{
 			draw_text_ex(
 			format!("{}", mount).as_str(),
@@ -987,7 +1057,7 @@ fn render_hotbar(hotebaru: &[Option<Items>;10*5], texturemanager: &Texturemanage
 }
 
 
-fn render_rest_of_the_inventory(inventory: &[Option<Items>;10*5], texturemanager: &Texturemanager){
+fn render_rest_of_the_inventory(inventory: &[Option<Item>;10*5], texturemanager: &Texturemanager, itemtypes: &Vec<ItemType>){
 	let scale:f32 = 4.0;
 
 	let dynamic_x_offset = scale*2.0;
@@ -1010,24 +1080,21 @@ fn render_rest_of_the_inventory(inventory: &[Option<Items>;10*5], texturemanager
 			Some(x) => x,
 			None => continue
 		};
-		let mut count:Option<u32> = None;
+		let count:Option<u32> = None;
 
-		let item_texture: &Texture2D  = match item {
-			Items::DirtBlock { amount } => {count = Some(*amount); &texturemanager.dirt},
-			Items::StoneBlock { amount } => {count = Some(*amount); &texturemanager.stone},
-			Items::GrassBlock { amount } => {count = Some(*amount); &texturemanager.grass},
-			Items::PickAxe =>  &texturemanager.pickaxe,
-		};
-
-		
-		draw_texture_ex(item_texture,
+		if let Some(texture) = itemtypes[item.item_type_id].texture.clone(){
+			draw_texture_ex(&texture,
 			dynamic_x_offset - (16.0 * scale) / 2.0 + (((iter%10) as f32) * 18.0 + 10.0) * scale,
 			dynamic_y_offset*3.0 + (16.0 * scale * 0.5) - (6.0 * scale) + (texturemanager.hotbar.height() * (iter/10) as f32) * scale,
 			  WHITE,
 			   DrawTextureParams{
 				   dest_size: Some(vec2(16.0, 16.0) * scale),
 				   ..Default::default()}
-		);
+			);
+		};
+
+		
+
 		if let Some(mount) = count{
 			draw_text_ex(
 			format!("{}", mount).as_str(),

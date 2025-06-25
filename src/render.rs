@@ -10,7 +10,7 @@ use macroquad::{
 
 
 
-use crate::{chunk::{BlockType, Planet}, full_info_planet_to_space_coords};
+use crate::{chunk::Planet, full_info_planet_to_space_coords};
 
 
 
@@ -18,19 +18,14 @@ use crate::{chunk::{BlockType, Planet}, full_info_planet_to_space_coords};
 pub fn render_planet_chunks(
 	planet : &Planet,
 	chunks_in_view: &HashMap<IVec2, crate::chunk::ChunkWithOtherInfo>,
-	texturemanager: &crate::texturemanager::Texturemanager,
+	itemtypes: &Vec<crate::ItemType>,
 ){
 
 	for chunkinfo in chunks_in_view{
 
         for index in 0..1024{
 
-			let texture_to_use = match chunkinfo.1.chunk[index] {
-				BlockType::Dirt => &texturemanager.dirt,
-				BlockType::Grass => &texturemanager.grass,
-				BlockType::Stone => &texturemanager.stone,
-				_ => {continue;}
-			};
+			if let Some(texture) = &itemtypes[chunkinfo.1.chunk[index]].texture{
 
             let chunk_x:i32 = index as i32%32;
             let chunk_y:i32 = index as i32/32;
@@ -44,7 +39,7 @@ pub fn render_planet_chunks(
 
 
 			draw_texture_ex(
-				texture_to_use,
+				&texture,
 				transformed.0.x - transformed.1/2.,
 				transformed.0.y - transformed.1/2.,
 				WHITE,
@@ -69,20 +64,25 @@ pub fn render_planet_chunks(
 					},
 				);
 			}
+			}
+			
+
+
         }
     }
 }
 
 
-pub fn _draw_world_color_only(chunks_in_view: &HashMap<UVec2, [BlockType; 1024]>){
+pub fn _draw_world_color_only(chunks_in_view: &HashMap<UVec2, [usize; 1024]>){
     for chunkinfo in chunks_in_view{
         for index in 0..1024{
             let blockcolor:Color = match chunkinfo.1[index] {
-                BlockType::Air => Color { r: 1.0, g: 1.0, b: 1.0, a: 0.0},
-                BlockType::Marvin => Color { r: 0.5, g: 0.4, b: 0.0, a: 1.0},
-                BlockType::Dirt => Color { r: 0.5, g: 0.5, b: 0.1, a: 1.0},
-                BlockType::Stone => Color { r: 0.4, g: 0.4, b: 0.45, a: 1.0},
-                BlockType::Grass => Color { r: 0.0, g: 1.0, b: 0.0, a: 1.0},
+                0 => Color { r: 1.0, g: 1.0, b: 1.0, a: 0.0},
+                1 => Color { r: 0.5, g: 0.4, b: 0.0, a: 1.0},
+                2 => Color { r: 0.5, g: 0.5, b: 0.1, a: 1.0},
+                3 => Color { r: 0.4, g: 0.4, b: 0.45, a: 1.0},
+                4 => Color { r: 0.0, g: 1.0, b: 0.0, a: 1.0},
+				_ =>  Color { r: 1.0, g: 1.0, b: 1.0, a: 0.0},
             };
 
             let x:i32 = index as i32%32;

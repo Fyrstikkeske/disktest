@@ -2,7 +2,7 @@ use std::{cell::RefCell, collections::HashMap, mem::swap};
 
 use macroquad::math::{vec2, IVec2, Rect, Vec2};
 
-use crate::chunk::{BlockType, ChunkWithOtherInfo, Planet};
+use crate::chunk::{ChunkWithOtherInfo, Planet};
 #[derive(Debug)]
 pub struct MovableEntity<'a>{
     pub dynrect: DynRect,
@@ -117,6 +117,7 @@ pub fn dynamic_rectangle_vs_planet_chunks(
     dynrect: &mut DynRect,
     chunks_in_view: &HashMap<IVec2,ChunkWithOtherInfo>,
     planet: &crate::chunk::Planet,
+    itemtypes: &Vec<crate::ItemType>
 ) -> RayRectInfo{
 
     let mut info = RayRectInfo::default();
@@ -164,9 +165,8 @@ pub fn dynamic_rectangle_vs_planet_chunks(
 
         let blockindex: usize = (x.rem_euclid(32) + (y.rem_euclid(32)) * 32) as usize;
         
-        match chunktoread.chunk[blockindex] {
-            BlockType::Dirt | BlockType::Grass | BlockType::Stone => {}
-            _ => continue,
+        if !itemtypes[chunktoread.chunk[blockindex]].collidable{
+            continue
         }
 
         let block = Rect {
