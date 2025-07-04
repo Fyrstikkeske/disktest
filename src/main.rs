@@ -33,12 +33,12 @@ struct GameState<'a>{
 	is_inventory_open: bool,
 	touches_floor: bool,
 	itemtypes: Vec<ItemType>,
-	item_references: HashMap<&'a str , usize>,
+	item_references: HashMap<&'a str , u32>,
 }
 
 #[derive(Clone, Copy)]
 pub struct Item {
-    pub item_type_id: usize,
+    pub item_type_id: u32,
     pub amount: u32,
 }
 
@@ -89,12 +89,7 @@ async fn main() {
 		rotation: RefCell::new(f32::consts::PI),
 	}));
 
-	let planet_me:Rc<RefCell<Planet>> = Rc::new(RefCell::new(Planet{
-		name: "PlanetMe",
-		space_position: RefCell::new(Vec2{x: 0.0, y: 100.0}),
-		size: UVec2 { x: 20, y: 10},
-		rotation: RefCell::new(0.0),
-	}));
+
 	
 	let player:collision::MovableEntity = collision::MovableEntity{
 		dynrect:collision::DynRect{
@@ -110,16 +105,8 @@ async fn main() {
     let compacta_font = load_ttf_font("Assets/compacta.ttf").await.unwrap();
 
 	let texturemanager: texturemanager::Texturemanager = texturemanager::texture_manager().await;
-	/*
-	let drop:DroppedItem = DroppedItem{
-		entity: collision::MovableEntity{
-			dynrect: collision::DynRect{rect:Rect{x:10.4, y: 605.0, w: 1.7, h:1.7}, velocity: Vec2::ZERO},
-			planet: None,
-			riding: None,
-			rot: 0.0 
-		},
-		item:Items::PickAxe,
-	}; */
+	
+
 
 	let sigma_spaceship:Rc<RefCell<SpaceShip>> =  Rc::new(RefCell::new(SpaceShip{
 		entity: collision::MovableEntity{
@@ -162,7 +149,7 @@ async fn main() {
 			collidable: false,
 		},
 	);
-	gamestate.item_references.insert("Air", gamestate.itemtypes.len() - 1);
+	gamestate.item_references.insert("Air", (gamestate.itemtypes.len() - 1) as u32);
 
 	gamestate.itemtypes.push(
 		ItemType{ id: "Dirt".to_string(),
@@ -175,7 +162,7 @@ async fn main() {
 			collidable: true,
 		},		
 	);
-	gamestate.item_references.insert("Dirt", gamestate.itemtypes.len() - 1);
+	gamestate.item_references.insert("Dirt", (gamestate.itemtypes.len() - 1) as u32);
 
 	gamestate.itemtypes.push(
 		ItemType{ id: "Stone".to_string(),
@@ -188,7 +175,7 @@ async fn main() {
 			collidable: true,
 		},
 	);
-	gamestate.item_references.insert("Stone", gamestate.itemtypes.len() - 1);
+	gamestate.item_references.insert("Stone", (gamestate.itemtypes.len() - 1) as u32);
 
 	gamestate.itemtypes.push(
 		ItemType{ id: "Grass".to_string(),
@@ -201,21 +188,21 @@ async fn main() {
 			collidable: true,
 		},
 	);
-	gamestate.item_references.insert("Grass", gamestate.itemtypes.len() - 1);
+	gamestate.item_references.insert("Grass", (gamestate.itemtypes.len() - 1) as u32);
 
 	gamestate.itemtypes.push(
 		ItemType{ id: "pickaxe".to_string(),
 			name: "DIRTMADAFAKA".to_string(),
 			texture: Some(load_texture("textures/iron_pickaxe.png").await.unwrap()),
-			placeable: true,
+			placeable: false,
 			max_stack: 64,
 			tool: true,
 			block: false,
 			collidable: true,
 		},
 	);
-	gamestate.item_references.insert("pickaxe", gamestate.itemtypes.len() - 1);
-
+	gamestate.item_references.insert("pickaxe", (gamestate.itemtypes.len() - 1) as u32);
+	
 	for i in gamestate.itemtypes.iter_mut(){
 		if let Some(texture) = &i.texture {
 			texture.set_filter(FilterMode::Nearest);
@@ -225,25 +212,34 @@ async fn main() {
 	if let Some(pickaxe) = gamestate.item_references.get("pickaxe"){
 		gamestate.player_inventory[0] = Some( Item{amount:1, item_type_id: *pickaxe});
 	}
-	if let Some(pickaxe) = gamestate.item_references.get("Grass"){
-		gamestate.player_inventory[1] = Some( Item{amount:1, item_type_id: *pickaxe});
+	if let Some(grass) = gamestate.item_references.get("Grass"){
+		gamestate.player_inventory[1] = Some( Item{amount:1, item_type_id: *grass});
 	}
-	if let Some(pickaxe) = gamestate.item_references.get("Stone"){
-		gamestate.player_inventory[2] = Some( Item{amount:1, item_type_id: *pickaxe});
+	if let Some(stone) = gamestate.item_references.get("Stone"){
+		gamestate.player_inventory[2] = Some( Item{amount:1, item_type_id: *stone});
 	}
 	
 
 
 	gamestate.planets.push(terra);
+	
+	let planet_me:Rc<RefCell<Planet>> = Rc::new(RefCell::new(Planet{
+		name: "PlanetMe",
+		space_position: RefCell::new(Vec2{x: 0.0, y: 60.0}),
+		size: UVec2 { x: 20, y: 10},
+		rotation: RefCell::new(0.0),
+	}));
 	gamestate.planets.push(planet_me);
 	gamestate.player.planet = Some(gamestate.planets[0].clone());
 	gamestate.spaceships.push(sigma_spaceship);
 	gamestate.spaceships[0].borrow_mut().entity.planet = Some(gamestate.planets[0].clone());
 
+
+
 	gamestate.player_inventory[10] = Some(Item{ item_type_id: 0, amount: 2 });
 	gamestate.dropped_items.push(
 		DroppedItem{ entity: MovableEntity{ dynrect: DynRect{ rect: Rect { x: 3.0, y: 620.0, w: 1.0, h: 1.0}, velocity: Vec2 { x: 0.0, y: 0.0 } }, 
-		planet: Some(gamestate.planets[0].clone()), riding: None, rot: 0.0 }, item: Item{ item_type_id: 0, amount: 1 } }
+		planet: Some(gamestate.planets[0].clone()), riding: None, rot: 0.0 }, item: Item{ item_type_id: 2, amount: 1 } }
 	);
 
 	//THATS WHY HE IS THE GOAT!!! THE GOAT!!!!!!
@@ -253,7 +249,7 @@ async fn main() {
 
 		
 		planets_system(&mut gamestate);
-
+		apply_gravity_for_item_in_space(&mut gamestate);
 
 
 		camera_manager_because_fucking_everything_is_broken(&mut gamestate.player, &mut gamestate.camera);
@@ -265,7 +261,7 @@ async fn main() {
 		}else {
 			off_planet(&mut gamestate)
 		}
-		
+		render_dropped_items(&gamestate.dropped_items, &gamestate.itemtypes );
 
 
 		spaceship_system(&mut gamestate);
@@ -278,8 +274,7 @@ async fn main() {
 		if is_key_pressed(KeyCode::Escape) { gamestate.is_inventory_open = !gamestate.is_inventory_open};
 
 
-
-		render_dropped_items(&gamestate.dropped_items, &gamestate.itemtypes );
+		
 
 
 		set_default_camera();
@@ -289,7 +284,7 @@ async fn main() {
 		if gamestate.is_inventory_open{
 			render_rest_of_the_inventory(&gamestate.player_inventory, &texturemanager, &gamestate.itemtypes);
 		}
-		if false {
+		if true {
 			draw_text_debug(&compacta_font, &gamestate);
 		}
     	
@@ -301,6 +296,31 @@ async fn main() {
 
 fn normalise_stuff_on_planets(gamestate: &mut GameState){
 	gamestate.player.dynrect.rect.x = gamestate.player.dynrect.rect.x.rem_euclid((gamestate.player.planet.clone().unwrap().borrow().size.x * 32) as f32);
+}
+
+fn apply_gravity_for_item_in_space(gamestate: &mut GameState) {
+    const G: f32 = 10.0; // Gravitational constant
+    
+    for i in gamestate.spaceships.iter() {
+        let mut spaceship = i.borrow_mut();
+        if spaceship.entity.planet.is_some() { continue; }
+
+        for ii in gamestate.planets.iter() {
+            let planet = ii.borrow();
+            let displacement = *planet.space_position.borrow() - spaceship.entity.dynrect.rect.center();
+            let distance_sq = displacement.length_squared();
+            
+            // Avoid division by zero and extreme forces
+            if distance_sq < 0.1 { continue; }
+            
+            // Calculate gravity force (F = G * m1 * m2 / r^2)
+            let force_magnitude = G * (planet.size.x * planet.size.y) as f32 / distance_sq;
+            let force_direction = displacement.normalize();
+            let force = force_direction * force_magnitude;
+            
+            spaceship.entity.dynrect.velocity += force * gamestate.delta; 
+        }
+    }
 }
 
 fn spaceship_system(gamestate:&mut GameState){
@@ -318,7 +338,7 @@ fn spaceship_system(gamestate:&mut GameState){
 	}
 
 	if let Some(spaceship) = &gamestate.player.riding{
-		rocket_input(&mut spaceship.borrow_mut().entity, &gamestate.delta)
+		rocket_input(&mut spaceship.borrow_mut().entity, &gamestate.delta, &gamestate.player.planet.is_some())
 	}
 
 	for spaceship in &mut gamestate.spaceships{
@@ -333,11 +353,12 @@ fn spaceship_system(gamestate:&mut GameState){
 				spaceship.entity.dynrect.rect.move_to(new_x);
 				spaceship.entity.planet = None;
 
-				let oldvelocity = spaceship.entity.dynrect.velocity * 0.1;
+				let oldvelocity = spaceship.entity.dynrect.velocity * 0.4;
 				let transformed = full_info_planet_to_space_coords(&planet.borrow(), &center);
 
-				spaceship.entity.dynrect.velocity.y = oldvelocity.x * -transformed.2.sin();
-				spaceship.entity.dynrect.velocity.y += oldvelocity.y * transformed.2.cos();
+				//going from planet to space
+				spaceship.entity.dynrect.velocity.y = oldvelocity.x * transformed.2.sin();
+				spaceship.entity.dynrect.velocity.y += oldvelocity.y * -transformed.2.cos();
 
 				spaceship.entity.dynrect.velocity.x = oldvelocity.x * transformed.2.cos();
 				spaceship.entity.dynrect.velocity.x += oldvelocity.y * transformed.2.sin();
@@ -367,15 +388,16 @@ fn spaceship_system(gamestate:&mut GameState){
 					spaceship.entity.dynrect.rect.move_to(position_if_rocket_was_on_planet);
 
 
-					let oldvelocity = spaceship.entity.dynrect.velocity * 10.0;
+					let oldvelocity = spaceship.entity.dynrect.velocity * 6.0;
 					
 					let transformed = full_info_planet_to_space_coords(&planet.borrow(), &position_if_rocket_was_on_planet);
 
-					spaceship.entity.dynrect.velocity.y = oldvelocity.x * (transformed.2).sin();
-					spaceship.entity.dynrect.velocity.y += oldvelocity.y * (transformed.2).cos();
+					//going from space to planet
+					spaceship.entity.dynrect.velocity.y = -oldvelocity.x * (-transformed.2).sin();
+					spaceship.entity.dynrect.velocity.y += -oldvelocity.y * (-transformed.2).cos();
 
-					spaceship.entity.dynrect.velocity.x = oldvelocity.x * (-transformed.2).cos();
-					spaceship.entity.dynrect.velocity.x += oldvelocity.y * (-transformed.2).sin();
+					spaceship.entity.dynrect.velocity.x = oldvelocity.x * (transformed.2).cos();
+					spaceship.entity.dynrect.velocity.x += oldvelocity.y * (transformed.2).sin();
 
 
 					spaceship.entity.rot -= transformed.2;
@@ -385,7 +407,7 @@ fn spaceship_system(gamestate:&mut GameState){
 
 			render_entity_space(&spaceship.entity, &gamestate.texturemanager.simple_spaceship);
 			spaceship.entity.dynrect.rect.x += spaceship.entity.dynrect.velocity.x * gamestate.delta;
-			spaceship.entity.dynrect.rect.y -= spaceship.entity.dynrect.velocity.y * gamestate.delta;
+			spaceship.entity.dynrect.rect.y += spaceship.entity.dynrect.velocity.y * gamestate.delta;
 		}
 	}
 }
@@ -394,7 +416,7 @@ fn planets_system(gamestate:&mut GameState){
 	for planet in &gamestate.planets {
         let planet = planet.borrow_mut();
         let mut rotation_mut = planet.rotation.borrow_mut();
-		*rotation_mut += gamestate.delta * 0.5;
+		//*rotation_mut += gamestate.delta * 0.5;
         *rotation_mut = rotation_mut.rem_euclid(-std::f32::consts::TAU);
     }
 }
@@ -654,11 +676,11 @@ fn pick_up_items<'a>(player: &collision::MovableEntity<'a>, inventory: &mut [Opt
 //FUCK DOESNT HANDLE ITEMS NOT ON PLANETS. ERRETA FIX TODO FUCK
 fn render_dropped_items(dropped_items: &Vec<DroppedItem>, itemtypes: &Vec<ItemType>,){
 	
-
 	for dropped_item in dropped_items.iter(){
+
 		if dropped_item.entity.planet.clone().is_none(){continue;}
 
-		if let Some(texture) = itemtypes[0].texture.clone(){
+		if let Some(texture) = &itemtypes[dropped_item.item.item_type_id as usize].texture{
 			render_entity(&dropped_item.entity.planet.clone().unwrap().borrow(), &dropped_item.entity, &texture);
 		};
 	}
@@ -700,11 +722,11 @@ fn hotbar_logic(gamestate: &mut GameState){
 	//destroy_block(camera, gamestate.player.planet.clone().unwrap(), chunks_in_view, &mut gamestate.dropped_items),
 	if is_mouse_button_down(MouseButton::Left) {
 		
-		if gamestate.itemtypes[item.item_type_id].placeable{
+		if gamestate.itemtypes[item.item_type_id as usize].placeable{
 			place_block(item.item_type_id, camera, planet, chunks_in_view);
 		}
 		
-		if gamestate.itemtypes[item.item_type_id].tool{
+		if gamestate.itemtypes[item.item_type_id as usize].tool{
 			destroy_block(camera, gamestate.player.planet.clone().unwrap(), chunks_in_view, &mut gamestate.dropped_items);
 		}
 		
@@ -713,7 +735,7 @@ fn hotbar_logic(gamestate: &mut GameState){
 }
 
 
-fn place_block(id_of_block_to_place: usize ,camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>){
+fn place_block(id_of_block_to_place: u32 ,camera: &Camera2D, planet: &Planet, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>){
 	let camamara = camera.screen_to_world(mouse_position().into());
 
 	let mut cemera:Vec2 = inverse_disk_position(camamara, planet);
@@ -773,35 +795,30 @@ fn destroy_block<'a>(camera: &Camera2D, planet: Rc<RefCell<Planet<'a>>>, chunks_
 	};
 	
 	let blockindex: usize = (cemera.x.rem_euclid(32) + (cemera.y.rem_euclid(32)) * 32) as usize;
-	/*
-	let item = match chunktoread.chunk[blockindex] {
-		BlockType::Stone => Items::StoneBlock { amount: 1 },
-		BlockType::Dirt => Items::DirtBlock { amount: 1 },
-		BlockType::Grass => Items::GrassBlock { amount: 1 },
-		_ => return,
-	};
 	
-	dropped_items.push(DroppedItem {
-		entity: MovableEntity {
-			dynrect: DynRect {
-				rect: Rect {
-					x: cemera.x as f32,
-					y: cemera.y as f32,
-					w: 0.5,
-					h: 0.5,
-				},
-				velocity: Vec2 { x: 0.0, y: 0.0 },
-			},
-			planet: Some(planet),
-			riding: None,
-			rot: 0.0,
-		},
-		items: item,
-	});*/
+	let item = chunktoread.chunk[blockindex];
 	
 
+
+	dropped_items.push(
+		DroppedItem{ 
+			entity: MovableEntity{ 
+				dynrect: DynRect{ 
+					rect: Rect {
+						x: cemera.x as f32,
+						y: cemera.y as f32,
+						w: 0.5,
+						h: 0.5,
+					},
+					velocity: Vec2 { x: 0.0, y: 0.0 } 
+				}, 
+		planet: Some(planet),
+		riding: None, rot: 0.0 }, 
+		item: Item{ item_type_id: item, amount: 1 } 
+		}
+	);
+	
 	chunktoread.chunk[blockindex] = 0;
-
 }
 
 
@@ -974,7 +991,8 @@ fn name_plate(compacta_font:&Font, gamestate:&GameState){
         );
 }
 
-fn rocket_input(rocket: &mut MovableEntity, delta: &f32){
+fn rocket_input(rocket: &mut MovableEntity, delta: &f32, on_planet :&bool){
+
 
 
 	if is_key_down(KeyCode::A) {
@@ -984,17 +1002,29 @@ fn rocket_input(rocket: &mut MovableEntity, delta: &f32){
 		rocket.rot += 1.4 * delta;
 	}
 
+	if *on_planet{
+		if is_key_down(KeyCode::W) {
+			rocket.dynrect.velocity.x += rocket.rot.sin() * delta * 20.0;
+			rocket.dynrect.velocity.y += rocket.rot.cos() * delta * 20.0;
+		}
+		if is_key_down(KeyCode::S) {
+			rocket.dynrect.velocity.x -= rocket.rot.sin() * delta * 1.0;
+			rocket.dynrect.velocity.y -= rocket.rot.cos() * delta * 1.0;
+		}
+	}else {
+		if is_key_down(KeyCode::W) {
+			rocket.dynrect.velocity.x += rocket.rot.sin() * delta * 20.0;
+			rocket.dynrect.velocity.y -= rocket.rot.cos() * delta * 20.0;
+		}
+		if is_key_down(KeyCode::S) {
+			rocket.dynrect.velocity.x -= rocket.rot.sin() * delta * 1.0;
+			rocket.dynrect.velocity.y += rocket.rot.cos() * delta * 1.0;
+		}
+	}
 
-	if is_key_down(KeyCode::W) {
-		rocket.dynrect.velocity.x += rocket.rot.sin() * delta * 5.0;
-		rocket.dynrect.velocity.y += rocket.rot.cos() * delta * 5.0;
-	}
-	if is_key_down(KeyCode::S) {
-		rocket.dynrect.velocity.x -= rocket.rot.sin() * delta * 1.0;
-		rocket.dynrect.velocity.y -= rocket.rot.cos() * delta * 1.0;
-	}
+
 	if rocket.planet.is_none(){
-		rocket.dynrect.velocity = rocket.dynrect.velocity.clamp_length_max(500.0 * delta);
+		rocket.dynrect.velocity = rocket.dynrect.velocity.clamp_length_max(5000.0 * delta);
 	}
 }
 
@@ -1039,7 +1069,7 @@ fn render_hotbar(hotebaru: &[Option<Item>;10*5], texturemanager: &Texturemanager
 		let count:Option<u32> = None;
 
 		
-		if let Some(texture) = itemtypes[item.item_type_id].texture.clone(){
+		if let Some(texture) = itemtypes[item.item_type_id as usize].texture.clone(){
 			draw_texture_ex(&texture,
 			dynamic_x_offset - (16.0 * scale) / 2.0 + ((iter as f32) * 18.0 + 10.0) * scale,
 			dynamic_y_offset + (16.0 * scale * 0.5) - (6.0 * scale),
@@ -1099,7 +1129,7 @@ fn render_rest_of_the_inventory(inventory: &[Option<Item>;10*5], texturemanager:
 		};
 		let count:Option<u32> = None;
 
-		if let Some(texture) = itemtypes[item.item_type_id].texture.clone(){
+		if let Some(texture) = itemtypes[item.item_type_id as usize].texture.clone(){
 			draw_texture_ex(&texture,
 			dynamic_x_offset - (16.0 * scale) / 2.0 + (((iter%10) as f32) * 18.0 + 10.0) * scale,
 			dynamic_y_offset*3.0 + (16.0 * scale * 0.5) - (6.0 * scale) + (texturemanager.hotbar.height() * (iter/10) as f32) * scale,

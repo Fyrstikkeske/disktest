@@ -25,7 +25,7 @@ pub fn render_planet_chunks(
 
         for index in 0..1024{
 
-			if let Some(texture) = &itemtypes[chunkinfo.1.chunk[index]].texture{
+			if let Some(texture) = &itemtypes[chunkinfo.1.chunk[index] as usize].texture{
 
             let chunk_x:i32 = index as i32%32;
             let chunk_y:i32 = index as i32/32;

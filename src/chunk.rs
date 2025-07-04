@@ -18,13 +18,13 @@ pub struct Planet<'a>{
 #[derive(Clone, Copy, PartialEq, Eq, Debug)]
 pub struct ChunkWithOtherInfo{
     pub position: IVec2,
-    pub chunk: [usize; CHUNKSIZE],
+    pub chunk: [u32; CHUNKSIZE],
 }
 
 
-pub fn readchunkfile <'a>(position: IVec2, planet: &Planet, item_references: &HashMap<&'a str , usize>) -> ChunkWithOtherInfo{
+pub fn readchunkfile <'a>(position: IVec2, planet: &Planet, item_references: &HashMap<&'a str , u32>) -> ChunkWithOtherInfo{
 
-    let mut chunk:[usize; CHUNKSIZE] = [0; CHUNKSIZE];
+    let mut chunk:[u32; CHUNKSIZE] = [0; CHUNKSIZE];
 
     let file_to_read_from = "Planets".to_string() + "/" + planet.name  + "/x" + &position.x.to_string() + "y" + &position.y.to_string();
 
@@ -73,14 +73,20 @@ pub fn readchunkfile <'a>(position: IVec2, planet: &Planet, item_references: &Ha
                     continue;
                 }
             }
+            if item == "Skull"{
+                if let Some(blocksenum) = item_references.get("Grass"){
+                    chunk[iteration] = *blocksenum;
+                    continue;
+                }
+            }
             unreachable!("\"{}\"", item);
         } 
     }
 
-    ChunkWithOtherInfo{position: position, chunk: chunk}
+    ChunkWithOtherInfo{position: position, chunk}
 }
 
-fn generate_chunk(seed:i32, position: IVec2, planet: &Planet) -> [usize; CHUNKSIZE] {
+fn generate_chunk(seed:i32, position: IVec2, planet: &Planet) -> [u32; CHUNKSIZE] {
     let mut chunk = [0; CHUNKSIZE];
     srand((seed as i128 + position.x as i128 + position.y as i128) as u64);
 
@@ -147,7 +153,7 @@ pub fn writechunkfile(chunk_info: ChunkWithOtherInfo, planet: &Planet, itemtypes
     let mut chunkstring = "".to_string();
 
     for i in 0..CHUNKSIZE{
-        let blockstring: &str = &itemtypes[chunk_info.chunk[i]].id;
+        let blockstring: &str = &itemtypes[chunk_info.chunk[i] as usize].id;
 
         if i != 1023{
             chunkstring.push_str(&(blockstring.to_owned() + "+"));
@@ -178,7 +184,7 @@ pub fn writechunkfile(chunk_info: ChunkWithOtherInfo, planet: &Planet, itemtypes
     }
 }
 
-pub fn chunks_in_view_manager <'a> (display: &Rect, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>, planet:&Planet, itemtypes: &Vec<crate::ItemType>, item_references: &HashMap<&'a str , usize>){
+pub fn chunks_in_view_manager <'a> (display: &Rect, chunks_in_view: &mut HashMap<IVec2,ChunkWithOtherInfo>, planet:&Planet, itemtypes: &Vec<crate::ItemType>, item_references: &HashMap<&'a str , u32>){
     /*let planet = match planet {
 		Some(theplanet) => theplanet,
 		None => {eprintln!("WHY TF ARE YOU TRYING TO CHUNK SOMETHING THATS NOT A PLANET"); return;}
@@ -206,18 +212,25 @@ pub fn chunks_in_view_manager <'a> (display: &Rect, chunks_in_view: &mut HashMap
 
     for i in 0..area{
 		let x:i32 = ((i as i32 %search_rectangle.w as i32) + search_rectangle.x as i32).rem_euclid(planet.size.x as i32);
-		let y:i32 = (i as i32 /search_rectangle.w as i32 + search_rectangle.y as i32).rem_euclid(planet.size.y as i32);
+
+        let y:i32 = (i as i32/ search_rectangle.w as i32 + search_rectangle.y as i32) as i32;
+        if y >= planet.size.y as i32{
+            continue;
+        }
+        if y < 0{
+            continue;
+        }
+		
 
 
-        chunktoremove.remove(&IVec2{x: x, y: y});
+        chunktoremove.remove(&IVec2{x, y});
 
 
-        match chunks_in_view.get(&IVec2{x: x, y: y}){
+        match chunks_in_view.get(&IVec2{x, y}){
             Some(_)=> {}
             None => {
-                if y > planet.size.y as i32 {chunks_in_view.insert(IVec2{x: x, y: y},ChunkWithOtherInfo{chunk: [0; CHUNKSIZE], position: IVec2 { x: (i as i32 %search_rectangle.w as i32) + search_rectangle.x as i32, y: i as i32 /search_rectangle.w as i32 + search_rectangle.y as i32 }});}
-                else{chunks_in_view.insert(IVec2{x: x, y: y}, ChunkWithOtherInfo{chunk: 
-                    readchunkfile(IVec2{x: x, y: y}, planet, &item_references).chunk, position: IVec2 { x: (i as i32 %search_rectangle.w as i32) + search_rectangle.x as i32, y: i as i32 /search_rectangle.w as i32 + search_rectangle.y as i32 }});}
+                chunks_in_view.insert(IVec2{x, y}, ChunkWithOtherInfo{chunk: 
+                    readchunkfile(IVec2{x, y}, planet, &item_references).chunk, position: IVec2 { x: (i as i32 %search_rectangle.w as i32) + search_rectangle.x as i32, y: i as i32 /search_rectangle.w as i32 + search_rectangle.y as i32 }});
             }
         }
     }
